@@ -12,19 +12,41 @@ import { createOpenAI } from "@ai-sdk/openai"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { createXai } from "@ai-sdk/xai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import { z } from "zod"
 
 // Provider definitions for setup wizard
-const PROVIDERS = [
+interface SetupProvider {
+  id: string
+  name: string
+  envHint: string
+  defaultModel: string
+  baseURL?: string // for openai-compatible providers
+}
+
+const PROVIDERS: SetupProvider[] = [
+  // Tier 1: dedicated SDK
   { id: "anthropic", name: "Anthropic (Claude)", envHint: "ANTHROPIC_API_KEY", defaultModel: "claude-sonnet-4-20250514" },
   { id: "openai", name: "OpenAI (GPT)", envHint: "OPENAI_API_KEY", defaultModel: "gpt-4o" },
   { id: "google", name: "Google (Gemini)", envHint: "GOOGLE_GENERATIVE_AI_API_KEY", defaultModel: "gemini-2.0-flash" },
   { id: "xai", name: "xAI (Grok)", envHint: "XAI_API_KEY", defaultModel: "grok-3-mini-fast" },
+  { id: "deepseek", name: "DeepSeek", envHint: "DEEPSEEK_API_KEY", defaultModel: "deepseek-chat", baseURL: "https://api.deepseek.com/v1" },
+  // Tier 2: regional / specialized
+  { id: "moonshot", name: "Moonshot (Kimi)", envHint: "MOONSHOT_API_KEY", defaultModel: "kimi-k2-0711-preview", baseURL: "https://api.moonshot.cn/v1" },
+  { id: "alibaba-cn", name: "Alibaba (Qwen / DashScope)", envHint: "DASHSCOPE_API_KEY", defaultModel: "qwen-plus", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+  { id: "zai", name: "z.ai (ZhipuAI / GLM)", envHint: "ZHIPU_API_KEY", defaultModel: "glm-4-flash", baseURL: "https://open.bigmodel.cn/api/paas/v4" },
+  // Aggregator
   { id: "openrouter", name: "OpenRouter (multi-provider)", envHint: "OPENROUTER_API_KEY", defaultModel: "anthropic/claude-sonnet-4" },
-] as const
+]
 
 function createModel(providerId: string, apiKey: string): LanguageModel {
   const provider = PROVIDERS.find((p) => p.id === providerId)!
+
+  // Providers with a baseURL use openai-compatible
+  if (provider.baseURL) {
+    return createOpenAICompatible({ name: providerId, baseURL: provider.baseURL, apiKey })(provider.defaultModel)
+  }
+
   switch (providerId) {
     case "anthropic":
       return createAnthropic({ apiKey })(provider.defaultModel)
