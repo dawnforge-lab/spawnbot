@@ -593,6 +593,7 @@ export const SetupCommand = cmd({
       )
 
       const agentRoles = [
+        { name: "coder", label: "Coder", hint: "code implementation and file editing — your strongest coding model" },
         { name: "explore", label: "Explorer", hint: "codebase search and file reading — can use a fast/cheap model" },
         { name: "general", label: "General subagent", hint: "delegated subtasks — can use a different model" },
         { name: "compaction", label: "Compaction", hint: "context summarization — can use a cheap model" },

@@ -71,10 +71,12 @@ export namespace LLM {
     const isCodex = provider.id === "openai" && auth?.type === "oauth"
 
     const system = []
+    const isPrimaryAgent = input.agent.mode === "primary" && !input.agent.hidden
     system.push(
       [
-        // SOUL.md defines core identity and personality
-        SystemPrompt.soul(),
+        // Primary agents get SOUL.md (personality, identity, communication style)
+        // Subagents/hidden agents get the provider's default prompt (efficient worker instructions)
+        ...(isPrimaryAgent ? [SystemPrompt.soul()] : SystemPrompt.provider(input.model)),
         // Agent-specific prompt (if set on the agent definition)
         ...(input.agent.prompt ? [input.agent.prompt] : []),
         // Extra system context passed into this call (environment block, etc.)

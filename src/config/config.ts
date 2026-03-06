@@ -1157,6 +1157,7 @@ export namespace Config {
           orchestrator: Agent.optional(),
           ask: Agent.optional(),
           // subagent
+          coder: Agent.optional(),
           general: Agent.optional(),
           explore: Agent.optional(),
           // specialized
