@@ -528,7 +528,33 @@ export const SetupCommand = cmd({
       prompts.log.success("OpenAI key will be used for Whisper transcription and memory embeddings.")
     }
 
-    // ── Step 6: Cron jobs ─────────────────────────────────────────────
+    // ── Step 6: Gemini Safety Filters (Google only) ─────────────────────
+    type SafetyLevel = "default" | "none" | "low"
+    let geminiSafety: SafetyLevel = "default"
+
+    if (providerId === "google") {
+      prompts.log.step("Step 6: Gemini safety filters")
+      prompts.log.info(
+        "Google's Gemini models have built-in safety filters that can block responses on certain topics.",
+      )
+
+      geminiSafety = unwrap(
+        await prompts.select({
+          message: "How should safety filters be configured?",
+          options: [
+            { value: "default" as SafetyLevel, label: "Default", hint: "Google's standard filtering (recommended for most users)" },
+            { value: "low" as SafetyLevel, label: "Low blocking", hint: "only block high-probability harmful content" },
+            { value: "none" as SafetyLevel, label: "No filtering", hint: "disable all safety filters (autonomous agents may need this)" },
+          ],
+        }),
+      )
+
+      if (geminiSafety !== "default") {
+        prompts.log.success(`Safety filters: ${geminiSafety === "none" ? "disabled" : "low blocking"}`)
+      }
+    }
+
+    // ── Step 7: Cron jobs ─────────────────────────────────────────────
     const wantsCrons = unwrap(
       await prompts.confirm({
         message: "Create a CRONS.yaml template for scheduled tasks?",
@@ -536,8 +562,8 @@ export const SetupCommand = cmd({
       }),
     )
 
-    // ── Step 7: Autostart ───────────────────────────────────────────────
-    prompts.log.step("Step 7: How should the agent run?")
+    // ── Step 8: Autostart ───────────────────────────────────────────────
+    prompts.log.step("Step 8: How should the agent run?")
 
     type RunMode = "manual" | "systemd" | "launchd"
     const platform = os.platform()
@@ -571,8 +597,8 @@ export const SetupCommand = cmd({
       prompts.log.info("Only manual mode available on this platform.")
     }
 
-    // ── Step 8: Optional skills ─────────────────────────────────────────
-    prompts.log.step("Step 8: Install optional skills")
+    // ── Step 9: Optional skills ─────────────────────────────────────────
+    prompts.log.step("Step 9: Install optional skills")
     prompts.log.info(
       "Skills teach your agent how to use external services. It will create its own tools when needed.",
     )
@@ -599,7 +625,7 @@ export const SetupCommand = cmd({
       }),
     ) as string[]
 
-    // ── Step 9: Agent model configuration ──────────────────────────────
+    // ── Step 10: Agent model configuration ─────────────────────────────
     interface AgentModelConfig {
       [agentName: string]: { providerID: string; modelID: string }
     }
@@ -729,9 +755,25 @@ export const SetupCommand = cmd({
     }
 
     // spawnbot.json — config with model, agent overrides, and schema
+    const modelConfig: Record<string, any> = { providerID: providerId, modelID: provider.defaultModel }
+
+    // Gemini safety filter options
+    if (geminiSafety !== "default") {
+      const threshold = geminiSafety === "none" ? "BLOCK_NONE" : "BLOCK_ONLY_HIGH"
+      modelConfig.options = {
+        safetySettings: [
+          { category: "HARM_CATEGORY_HARASSMENT", threshold },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold },
+          { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold },
+        ],
+      }
+    }
+
     const config: Record<string, any> = {
       $schema: "https://opencode.ai/config.json",
-      model: { providerID: providerId, modelID: provider.defaultModel },
+      model: modelConfig,
     }
     if (Object.keys(agentModels).length > 0) {
       config.agent = {}
@@ -767,6 +809,11 @@ export const SetupCommand = cmd({
         `Location: ${baseDir}`,
         telegramToken ? `Telegram: @${botUsername}` : "Telegram: not configured",
         openaiKeyForServices ? "Whisper + Embeddings: enabled" : "Whisper + Embeddings: not configured",
+        geminiSafety !== "default"
+          ? `Gemini safety: ${geminiSafety === "none" ? "disabled" : "low blocking"}`
+          : providerId === "google"
+            ? "Gemini safety: default"
+            : undefined,
         selectedSkills.length > 0
           ? `Skills: ${selectedSkills.join(", ")}`
           : "Skills: none (built-in defaults only)",
@@ -777,7 +824,7 @@ export const SetupCommand = cmd({
         "",
         "Files created:",
         ...createdFiles.map((f) => `  ${f}`),
-      ].join(EOL),
+      ].filter(Boolean).join(EOL),
       "Setup complete",
     )
 
