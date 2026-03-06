@@ -31,7 +31,9 @@ Autonomous AI agent framework forked from **Kilo Code CLI** (MIT license). Adds 
 
 **Phase 3: Memory System** — COMPLETE. FTS5 full-text search, importance decay, 4 tools (store/recall/browse/delete), context director (token-budgeted injection before each turn). Memory table + FTS5 virtual table created at DB init. Categories: general, factual, preference, emotional, task, relationship, interaction.
 
-Next: Phase 4 (Input system + Telegram integration).
+**Phase 4: Input & Telegram** — COMPLETE. Priority queue (4 levels, blocking dequeue, 5 tests), input router (source attribution, sequential processing, 5 tests), Telegram listener (grammY, long polling, text/photo/doc, owner verification, message splitting), 3 Telegram tools (tg_send, tg_photo, tg_react), response routing back to originating source.
+
+Next: Phase 5 (Autonomy & scheduling — idle loop, cron, pollers).
 
 ## Key Design Principles
 1. Telegram is core, everything else is an add-on

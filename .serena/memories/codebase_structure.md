@@ -49,3 +49,19 @@ kilocode/       # Kilo-specific branding/telemetry (TO STRIP)
 - Tools registered in `src/tool/registry.ts`
 - MCP tools namespaced as `{serverName}_{toolName}`
 - Sessions persisted in SQLite via Drizzle
+
+## Spawnbot Extensions (added on top of Kilo Code)
+- **Self-managed skills + tools system**: Agent can create its own skills (SKILL.md) and tools (.ts files)
+  - Built-in meta-skills in `src/skill/builtin/`: `create-skill`, `create-tool`
+  - Skills scanned from `.spawnbot/skills/`, `.claude/skills/`, `.agents/skills/`, built-in dir
+  - Tools scanned from `.spawnbot/tools/` (via `Config.directories()` → `ToolRegistry`)
+  - SKILLS.md added to docs reference (soul/index.ts) alongside GOALS.md, PLAYBOOK.md, USER.md
+- **Daemon system**: `src/daemon/index.ts` — loads env, starts ngrok tunnel, creates auto-approve session, wires input router → SessionPrompt
+- **Telegram integration**: `src/telegram/listener.ts` — grammY with webhook (ngrok) or long polling modes
+- **Tunnel**: `src/tunnel/index.ts` — ngrok SDK integration
+- **Setup wizard**: `src/cli/cmd/setup.ts` — interactive onboarding with @clack/prompts
+- **Doctor**: `src/cli/cmd/doctor.ts` — config/env diagnostics
+- **Status API**: `src/server/routes/status.ts` — uptime, queue, cron, pollers, tunnel, memory stats
+- **Memory tools**: `src/tool/memory.ts` — memory_store, memory_recall, memory_browse, memory_delete
+- **Telegram tools**: `src/tool/telegram.ts` — tg_send, tg_photo, tg_react
+- **Custom tools**: `@kilocode/plugin` tool format — `tool({ description, args, execute })` in `.spawnbot/tools/*.ts`
