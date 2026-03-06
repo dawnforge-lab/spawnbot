@@ -3,6 +3,7 @@ import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import path from "path"
 import fs from "fs"
+import os from "os"
 import { Global } from "../../global"
 import { EOL } from "os"
 import { Auth } from "../../auth"
@@ -535,6 +536,41 @@ export const SetupCommand = cmd({
       }),
     )
 
+    // ── Step 7: Autostart ───────────────────────────────────────────────
+    prompts.log.step("Step 7: How should the agent run?")
+
+    type RunMode = "manual" | "systemd" | "launchd"
+    const platform = os.platform()
+    const runOptions: Array<{ value: RunMode; label: string; hint?: string }> = [
+      { value: "manual", label: "Manual", hint: "run `spawnbot daemon` yourself" },
+    ]
+
+    if (platform === "linux") {
+      runOptions.push({
+        value: "systemd",
+        label: "Systemd service",
+        hint: "auto-starts on boot, restarts on crash",
+      })
+    } else if (platform === "darwin") {
+      runOptions.push({
+        value: "launchd",
+        label: "Launchd agent",
+        hint: "auto-starts on login, restarts on crash",
+      })
+    }
+
+    let runMode: RunMode = "manual"
+    if (runOptions.length > 1) {
+      runMode = unwrap(
+        await prompts.select({
+          message: "How should the daemon run?",
+          options: runOptions,
+        }),
+      )
+    } else {
+      prompts.log.info("Only manual mode available on this platform.")
+    }
+
     // ── Write files ───────────────────────────────────────────────────
     fs.mkdirSync(baseDir, { recursive: true })
 
@@ -587,6 +623,15 @@ export const SetupCommand = cmd({
 
     ws.stop("Config files written.")
 
+    // ── Install service if requested ──────────────────────────────────
+    let serviceInstalled = false
+
+    if (runMode === "systemd") {
+      serviceInstalled = await installSystemdService(baseDir, agentName)
+    } else if (runMode === "launchd") {
+      serviceInstalled = await installLaunchdAgent(baseDir, agentName)
+    }
+
     // ── Summary ───────────────────────────────────────────────────────
     const createdFiles = ["SOUL.md", "USER.md", "GOALS.md", "PLAYBOOK.md"]
     if (envLines.length > 0) createdFiles.push(".env")
@@ -599,6 +644,7 @@ export const SetupCommand = cmd({
         `Location: ${baseDir}`,
         telegramToken ? `Telegram: @${botUsername}` : "Telegram: not configured",
         openaiKeyForServices ? "Whisper + Embeddings: enabled" : "Whisper + Embeddings: not configured",
+        `Run mode: ${runMode}${serviceInstalled ? " (installed)" : ""}`,
         "",
         "Files created:",
         ...createdFiles.map((f) => `  ${f}`),
@@ -618,6 +664,142 @@ export const SetupCommand = cmd({
     }
 
     prompts.log.info("Edit the generated files anytime — they're just Markdown.")
-    prompts.outro("Run `spawnbot daemon` to start your agent.")
+    if (serviceInstalled) {
+      prompts.outro("Your agent is installed as a service and will start automatically.")
+    } else {
+      prompts.outro("Run `spawnbot daemon` to start your agent.")
+    }
   },
 })
+
+async function installSystemdService(workDir: string, agentName: string): Promise<boolean> {
+  const serviceName = `spawnbot-${agentName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+  const serviceDir = path.join(os.homedir(), ".config", "systemd", "user")
+  const servicePath = path.join(serviceDir, `${serviceName}.service`)
+  const execPath = process.execPath
+
+  const unit = [
+    "[Unit]",
+    `Description=Spawnbot daemon: ${agentName}`,
+    "After=network-online.target",
+    "Wants=network-online.target",
+    "",
+    "[Service]",
+    "Type=simple",
+    `ExecStart=${execPath} daemon --directory ${workDir}`,
+    `WorkingDirectory=${workDir}`,
+    "Restart=on-failure",
+    "RestartSec=10",
+    `Environment=HOME=${os.homedir()}`,
+    "",
+    "[Install]",
+    "WantedBy=default.target",
+    "",
+  ].join("\n")
+
+  try {
+    fs.mkdirSync(serviceDir, { recursive: true })
+    fs.writeFileSync(servicePath, unit)
+    prompts.log.success(`Systemd service written to ${servicePath}`)
+
+    const { $ } = await import("bun")
+
+    // Reload systemd and enable the service
+    await $`systemctl --user daemon-reload`.quiet().nothrow()
+    const enable = await $`systemctl --user enable ${serviceName}`.quiet().nothrow()
+    if (enable.exitCode !== 0) {
+      prompts.log.warn("Could not enable service automatically.")
+      prompts.log.info(`  Run: systemctl --user enable ${serviceName}`)
+      prompts.log.info(`  Run: systemctl --user start ${serviceName}`)
+      return false
+    }
+
+    const start = await $`systemctl --user start ${serviceName}`.quiet().nothrow()
+    if (start.exitCode !== 0) {
+      prompts.log.warn("Service enabled but could not start. Check with:")
+      prompts.log.info(`  systemctl --user status ${serviceName}`)
+      return true
+    }
+
+    // Enable lingering so service runs even when user is not logged in
+    await $`loginctl enable-linger ${os.userInfo().username}`.quiet().nothrow()
+
+    prompts.log.success(`Service ${serviceName} started and enabled on boot.`)
+    prompts.log.info(`  Status: systemctl --user status ${serviceName}`)
+    prompts.log.info(`  Logs:   journalctl --user -u ${serviceName} -f`)
+    prompts.log.info(`  Stop:   systemctl --user stop ${serviceName}`)
+    return true
+  } catch (err) {
+    prompts.log.error(`Failed to install systemd service: ${err}`)
+    return false
+  }
+}
+
+async function installLaunchdAgent(workDir: string, agentName: string): Promise<boolean> {
+  const label = `com.spawnbot.${agentName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+  const agentDir = path.join(os.homedir(), "Library", "LaunchAgents")
+  const plistPath = path.join(agentDir, `${label}.plist`)
+  const execPath = process.execPath
+  const logDir = path.join(os.homedir(), "Library", "Logs", "spawnbot")
+
+  const plist = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">`,
+    `<plist version="1.0">`,
+    `<dict>`,
+    `  <key>Label</key>`,
+    `  <string>${label}</string>`,
+    `  <key>ProgramArguments</key>`,
+    `  <array>`,
+    `    <string>${execPath}</string>`,
+    `    <string>daemon</string>`,
+    `    <string>--directory</string>`,
+    `    <string>${workDir}</string>`,
+    `  </array>`,
+    `  <key>WorkingDirectory</key>`,
+    `  <string>${workDir}</string>`,
+    `  <key>RunAtLoad</key>`,
+    `  <true/>`,
+    `  <key>KeepAlive</key>`,
+    `  <dict>`,
+    `    <key>SuccessfulExit</key>`,
+    `    <false/>`,
+    `  </dict>`,
+    `  <key>StandardOutPath</key>`,
+    `  <string>${logDir}/stdout.log</string>`,
+    `  <key>StandardErrorPath</key>`,
+    `  <string>${logDir}/stderr.log</string>`,
+    `  <key>EnvironmentVariables</key>`,
+    `  <dict>`,
+    `    <key>HOME</key>`,
+    `    <string>${os.homedir()}</string>`,
+    `  </dict>`,
+    `</dict>`,
+    `</plist>`,
+    ``,
+  ].join("\n")
+
+  try {
+    fs.mkdirSync(agentDir, { recursive: true })
+    fs.mkdirSync(logDir, { recursive: true })
+    fs.writeFileSync(plistPath, plist)
+    prompts.log.success(`Launchd agent written to ${plistPath}`)
+
+    const { $ } = await import("bun")
+    const load = await $`launchctl load ${plistPath}`.quiet().nothrow()
+    if (load.exitCode !== 0) {
+      prompts.log.warn("Could not load agent automatically.")
+      prompts.log.info(`  Run: launchctl load ${plistPath}`)
+      return false
+    }
+
+    prompts.log.success(`Agent ${label} loaded and will start on login.`)
+    prompts.log.info(`  Status: launchctl list | grep ${label}`)
+    prompts.log.info(`  Logs:   tail -f ${logDir}/stdout.log`)
+    prompts.log.info(`  Stop:   launchctl unload ${plistPath}`)
+    return true
+  } catch (err) {
+    prompts.log.error(`Failed to install launchd agent: ${err}`)
+    return false
+  }
+}
