@@ -29,6 +29,7 @@ import { Truncate } from "./truncation"
 
 import { ApplyPatchTool } from "./apply_patch"
 import { MemoryStoreTool, MemoryRecallTool, MemoryBrowseTool, MemoryDeleteTool } from "./memory"
+import { TelegramSendTool, TelegramPhotoTool, TelegramReactTool } from "./telegram"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
 
@@ -122,6 +123,10 @@ export namespace ToolRegistry {
       MemoryRecallTool,
       MemoryBrowseTool,
       MemoryDeleteTool,
+      // Telegram tools — always registered, gracefully no-op when bot isn't running
+      TelegramSendTool,
+      TelegramPhotoTool,
+      TelegramReactTool,
       ...(Flag.KILO_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.KILO_EXPERIMENTAL_PLAN_MODE && Flag.KILO_CLIENT === "cli" ? [PlanExitTool] : []),

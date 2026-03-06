@@ -29,7 +29,9 @@ Autonomous AI agent framework forked from **Kilo Code CLI** (MIT license). Adds 
 - Only SOUL.md changes invalidate provider prompt cache; other docs are read on demand
 - Searches .spawnbot/ → ~/.config/spawnbot/. Falls back to built-in default.
 
-Next: Phase 3 (Memory system with FTS5 + importance decay).
+**Phase 3: Memory System** — COMPLETE. FTS5 full-text search, importance decay, 4 tools (store/recall/browse/delete), context director (token-budgeted injection before each turn). Memory table + FTS5 virtual table created at DB init. Categories: general, factual, preference, emotional, task, relationship, interaction.
+
+Next: Phase 4 (Input system + Telegram integration).
 
 ## Key Design Principles
 1. Telegram is core, everything else is an add-on
