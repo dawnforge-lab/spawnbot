@@ -33,7 +33,13 @@ Autonomous AI agent framework forked from **Kilo Code CLI** (MIT license). Adds 
 
 **Phase 4: Input & Telegram** — COMPLETE. Priority queue (4 levels, blocking dequeue, 5 tests), input router (source attribution, sequential processing, 5 tests), Telegram listener (grammY, long polling, text/photo/doc, owner verification, message splitting), 3 Telegram tools (tg_send, tg_photo, tg_react), response routing back to originating source.
 
-Next: Phase 5 (Autonomy & scheduling — idle loop, cron, pollers).
+All phases complete. TypeScript compiles clean (0 errors), 60 tests pass, build produces native binary.
+
+**Remaining work:**
+- End-to-end testing with real Telegram token + LLM provider
+- Session rotation for long-running daemon
+- Poller plugins (framework ready, no pollers registered)
+- `--dry-run` mode for daemon testing without Telegram
 
 ## Key Design Principles
 1. Telegram is core, everything else is an add-on

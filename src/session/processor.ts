@@ -15,7 +15,7 @@ import { Config } from "@/config/config"
 import { SessionCompaction } from "./compaction"
 import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
-import { Telemetry } from "@/stubs/telemetry" // kilocode_change
+import { Telemetry } from "@/stubs/telemetry"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -35,7 +35,7 @@ export namespace SessionProcessor {
     let blocked = false
     let attempt = 0
     let needsCompaction = false
-    let stepStart = 0 // kilocode_change
+    let stepStart = 0
 
     const result = {
       get message() {
@@ -233,7 +233,7 @@ export namespace SessionProcessor {
                   throw value.error
 
                 case "start-step":
-                  stepStart = performance.now() // kilocode_change
+                  stepStart = performance.now()
                   snapshot = await Snapshot.track()
                   await Session.updatePart({
                     id: Identifier.ascending("part"),
@@ -250,7 +250,7 @@ export namespace SessionProcessor {
                     usage: value.usage,
                     metadata: value.providerMetadata,
                   })
-                  // kilocode_change start
+
                   if (
                     usage.tokens.input > 0 ||
                     usage.tokens.output > 0 ||
@@ -269,7 +269,7 @@ export namespace SessionProcessor {
                       completionTime: Math.round(performance.now() - stepStart),
                     })
                   }
-                  // kilocode_change end
+
                   input.assistantMessage.finish = value.finishReason
                   input.assistantMessage.cost += usage.cost
                   input.assistantMessage.tokens = usage.tokens

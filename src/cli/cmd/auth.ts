@@ -206,7 +206,7 @@ export const AuthListCommand = cmd({
   aliases: ["ls"],
   describe: "list providers",
   async handler() {
-    // kilocode_change start - wrap with Instance.provide for ModelsDev.get() -> Config.get() dependency
+
     await Instance.provide({
       directory: process.cwd(),
       async fn() {
@@ -251,7 +251,7 @@ export const AuthListCommand = cmd({
         }
       },
     })
-    // kilocode_change end
+
   },
 })
 
@@ -311,8 +311,6 @@ export const AuthLoginCommand = cmd({
           }
           return filtered
         })
-
-        // kilocode_change start
         const priority: Record<string, number> = {
           kilo: 0,
           opencode: 1,
@@ -323,8 +321,6 @@ export const AuthLoginCommand = cmd({
           openrouter: 6,
           vercel: 7,
         }
-        // kilocode_change end
-
         const pluginProviders = resolvePluginProviders({
           hooks: await Plugin.list(),
           existingProviders: providers,
@@ -347,7 +343,7 @@ export const AuthLoginCommand = cmd({
                 label: x.name,
                 value: x.id,
                 hint: {
-                  kilo: "recommended", // kilocode_change
+                  kilo: "recommended",
                   opencode: "recommended",
                   anthropic: "Claude Max or API key",
                   openai: "ChatGPT Plus/Pro or API key",
@@ -439,7 +435,7 @@ export const AuthLogoutCommand = cmd({
   command: "logout",
   describe: "log out from a configured provider",
   async handler() {
-    // kilocode_change start - wrap with Instance.provide for ModelsDev.get() -> Config.get() dependency
+
     await Instance.provide({
       directory: process.cwd(),
       async fn() {
@@ -463,6 +459,6 @@ export const AuthLogoutCommand = cmd({
         prompts.outro("Logout successful")
       },
     })
-    // kilocode_change end
+
   },
 })

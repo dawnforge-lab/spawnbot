@@ -125,7 +125,7 @@ export function Prompt(props: PromptProps) {
     mode: "normal" | "shell"
     extmarkToPartIndex: Map<number, number>
     interrupt: number
-    exitPress: number // kilocode_change - track double ctrl+c to exit
+    exitPress: number
     placeholder: number
   }>({
     placeholder: Math.floor(Math.random() * PLACEHOLDERS.length),
@@ -136,7 +136,7 @@ export function Prompt(props: PromptProps) {
     mode: "normal",
     extmarkToPartIndex: new Map(),
     interrupt: 0,
-    exitPress: 0, // kilocode_change
+    exitPress: 0,
   })
 
   createEffect(
@@ -148,8 +148,6 @@ export function Prompt(props: PromptProps) {
       { defer: true },
     ),
   )
-
-  // kilocode_change start - sync local agent/model whenever newest user message changes
   let syncedKey: string | undefined
   createEffect(() => {
     const sessionID = props.sessionID
@@ -166,8 +164,6 @@ export function Prompt(props: PromptProps) {
     if (msg.model) local.model.set(msg.model)
     if (msg.variant) local.model.variant.set(msg.variant)
   })
-  // kilocode_change end
-
   command.register(() => {
     return [
       {
@@ -865,7 +861,7 @@ export function Prompt(props: PromptProps) {
                 }
                 if (keybind.match("app_exit", e)) {
                   if (store.prompt.input === "") {
-                    // kilocode_change start - double ctrl+c to exit, single ctrl+d exits immediately
+
                     if (e.ctrl && e.name === "c") {
                       setStore("exitPress", store.exitPress + 1)
                       setTimeout(() => {
@@ -879,7 +875,7 @@ export function Prompt(props: PromptProps) {
                       e.preventDefault()
                       return
                     }
-                    // kilocode_change end
+
                     await exit()
                     // Don't preventDefault - let textarea potentially handle the event
                     e.preventDefault()

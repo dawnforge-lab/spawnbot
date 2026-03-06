@@ -13,11 +13,11 @@ import { DialogModel } from "./dialog-model"
 import { useKeyboard } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
-import { KiloAutoMethod } from "@/kilocode/components/dialog-kilo-auto-method" // kilocode_change
+import { KiloAutoMethod } from "@/kilocode/components/dialog-kilo-auto-method"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
-  kilo: -1, // kilocode_change - Kilo Gateway at top
-  // kilocode_change - removed opencode from popular providers
+  kilo: -1,
+
   anthropic: 0,
   "github-copilot": 1,
   openai: 2,
@@ -36,10 +36,10 @@ export function createDialogProviderOptions() {
         title: provider.name,
         value: provider.id,
         description: {
-          kilo: "(Recommended)", // kilocode_change
+          kilo: "(Recommended)",
           anthropic: "(Claude Max or API key)",
           openai: "(ChatGPT Plus/Pro or API key)",
-          // "opencode-go": "(Low cost)", // kilocode_change
+          // "opencode-go": "(Low cost)",
         }[provider.id],
         category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Other",
         async onSelect() {
@@ -80,7 +80,7 @@ export function createDialogProviderOptions() {
               ))
             }
             if (result.data?.method === "auto") {
-              // kilocode_change start - Use custom handler for Kilo Gateway
+
               if (provider.id === "kilo") {
                 dialog.replace(() => (
                   <KiloAutoMethod
@@ -103,7 +103,7 @@ export function createDialogProviderOptions() {
                   />
                 ))
               }
-              // kilocode_change end
+
             }
           }
           if (method.type === "api") {

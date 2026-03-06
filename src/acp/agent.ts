@@ -44,7 +44,7 @@ import { LoadAPIKeyError } from "ai"
 import type { AssistantMessage, Event, KiloClient, SessionMessageResponse, ToolPart } from "@kilocode/sdk/v2"
 import { applyPatch } from "diff"
 
-import { fetchDefaultModel } from "@/stubs/gateway" // kilocode_change
+import { fetchDefaultModel } from "@/stubs/gateway"
 
 type ModeOption = { id: string; name: string; description?: string }
 type ModelOption = { modelId: string; name: string }
@@ -1563,8 +1563,6 @@ export namespace ACP {
     }
 
     if (specified && !providers.length) return specified
-
-    // kilocode_change start
     const kiloProvider = providers.find((p) => p.id === "kilo")
     if (kiloProvider) {
       const [best] = Provider.sort(Object.values(kiloProvider.models))
@@ -1575,8 +1573,6 @@ export namespace ACP {
         }
       }
     }
-    // kilocode_change end
-
     const models = providers.flatMap((p) => Object.values(p.models))
     const [best] = Provider.sort(models)
     if (best) {
@@ -1587,12 +1583,10 @@ export namespace ACP {
     }
 
     if (specified) return specified
-
-    // kilocode_change start
     const freeModel = await fetchDefaultModel()
     const parsed = Provider.parseModel(freeModel ?? "")
     return { providerID: "kilo", modelID: parsed.modelID }
-    // kilocode_change end
+
   }
 
   function parseUri(

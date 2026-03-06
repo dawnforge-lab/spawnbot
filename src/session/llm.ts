@@ -23,14 +23,12 @@ import { buildMemoryContext } from "@/memory/context"
 import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
-import { DEFAULT_HEADERS } from "@/kilocode/const" // kilocode_change
-import { Telemetry } from "@/stubs/telemetry" // kilocode_change
-// kilocode_change start
+import { DEFAULT_HEADERS } from "@/kilocode/const"
+import { Telemetry } from "@/stubs/telemetry"
+
 import { getKiloProjectId } from "@/kilocode/project-id"
 import { HEADER_PROJECTID, HEADER_MACHINEID, HEADER_TASKID } from "@/stubs/gateway"
 import { Identity } from "@/stubs/telemetry"
-// kilocode_change end
-
 export namespace LLM {
   const log = Log.create({ service: "llm" })
   export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
@@ -127,9 +125,9 @@ export namespace LLM {
       mergeDeep(variant),
     )
     if (isCodex) {
-      // kilocode_change start - prepend soul to codex instructions
+
       options.instructions = SystemPrompt.soul() + "\n" + SystemPrompt.instructions()
-      // kilocode_change end
+
     }
 
     const params = await Plugin.trigger(
@@ -164,13 +162,9 @@ export namespace LLM {
         headers: {},
       },
     )
-
-    // kilocode_change start - resolve project ID and machine ID for kilo provider
     const isKilo = input.model.api.npm === "@kilocode/kilo-gateway"
     const kiloProjectId = isKilo ? await getKiloProjectId().catch(() => undefined) : undefined
     const machineId = isKilo ? Identity.machineId() : undefined
-    // kilocode_change end
-
     const maxOutputTokens =
       isCodex || provider.id.includes("github-copilot") ? undefined : ProviderTransform.maxOutputTokens(input.model)
 
@@ -241,14 +235,14 @@ export namespace LLM {
               "x-kilo-client": Flag.KILO_CLIENT,
             }
           : input.model.providerID !== "anthropic"
-            ? DEFAULT_HEADERS // kilocode_change
+            ? DEFAULT_HEADERS
             : undefined),
         ...(isKilo && input.agent.name ? { "x-kilocode-mode": input.agent.name.toLowerCase() } : {}),
-        // kilocode_change start - add project ID, machine ID, and task ID headers for kilo provider
+
         ...(isKilo && kiloProjectId ? { [HEADER_PROJECTID]: kiloProjectId } : {}),
         ...(isKilo && machineId ? { [HEADER_MACHINEID]: machineId } : {}),
         ...(isKilo ? { [HEADER_TASKID]: input.sessionID } : {}),
-        // kilocode_change end
+
         ...input.model.headers,
         ...headers,
       },
@@ -276,14 +270,6 @@ export namespace LLM {
           },
         ],
       }),
-      // kilocode_change start - enable telemetry by default with custom PostHog tracer
-      experimental_telemetry: {
-        isEnabled: cfg.experimental?.openTelemetry !== false,
-        recordInputs: false, // Prevent recording prompts, messages, tool args
-        recordOutputs: false, // Prevent recording completions, tool results
-        tracer: Telemetry.getTracer() ?? undefined,
-      },
-      // kilocode_change end
     })
   }
 

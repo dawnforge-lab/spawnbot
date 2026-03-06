@@ -40,9 +40,9 @@ import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
-import { registerKiloCommands } from "@/kilocode/kilo-commands" // kilocode_change
+import { registerKiloCommands } from "@/kilocode/kilo-commands"
 // spawnbot: gateway TUI deps removed
-const initializeTUIDependencies = async (_deps?: any) => {} // kilocode_change
+const initializeTUIDependencies = async (_deps?: any) => {}
 import { TuiConfigProvider } from "./context/tui-config"
 import { TuiConfig } from "@/config/tui"
 
@@ -273,20 +273,20 @@ function App() {
     const titleDefault = "Spawnbot"
 
     if (route.data.type === "home") {
-      renderer.setTerminalTitle(titleDefault) // kilocode_change
+      renderer.setTerminalTitle(titleDefault)
       return
     }
 
     if (route.data.type === "session") {
       const session = sync.session.get(route.data.sessionID)
       if (!session || SessionApi.isDefaultTitle(session.title)) {
-        renderer.setTerminalTitle(titleDefault) // kilocode_change
+        renderer.setTerminalTitle(titleDefault)
         return
       }
 
       // Truncate title to 40 chars max
       const title = session.title.length > 40 ? session.title.slice(0, 37) + "..." : session.title
-      renderer.setTerminalTitle(`${titleDefault} | ${title}`) // kilocode_change
+      renderer.setTerminalTitle(`${titleDefault} | ${title}`)
     }
   })
 
@@ -567,7 +567,7 @@ function App() {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://kilo.ai/docs").catch(() => {}) // kilocode_change
+        open("https://kilo.ai/docs").catch(() => {})
         dialog.clear()
       },
       category: "System",
@@ -665,8 +665,6 @@ function App() {
       },
     },
   ])
-
-  // kilocode_change start - Initialize TUI dependencies for kilo-gateway
   initializeTUIDependencies({
     useCommandDialog: useCommandDialog,
     useSync: useSync,
@@ -682,9 +680,7 @@ function App() {
     TextAttributes: TextAttributes,
   })
   registerKiloCommands(useSDK)
-  // kilocode_change end
 
-  // kilocode_change - Delete OpenRouter Alert
   sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {
     command.trigger(evt.properties.command)
   })

@@ -1,5 +1,3 @@
-// kilocode_change - new file
-
 /**
  * Formats markdown tables with fixed-width columns, similar to VS Code's behavior.
  * This normalizes column widths so tables render with aligned columns.

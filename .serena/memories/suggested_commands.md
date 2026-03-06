@@ -23,11 +23,14 @@ bun run --cwd packages/opencode script/build.ts
 cd packages/opencode && bun test --timeout 30000
 ```
 
-## After Fork (Phase 1 complete)
+## After Fork (All phases complete)
 ```bash
 bun install           # Install dependencies
-bun run dev           # Start in dev mode
-bun run build         # Build for production
-spawnbot run "hello"  # Headless mode
-spawnbot              # Interactive TUI
+bun run dev           # Start in dev mode (TUI)
+bun run dev -- --help # Show CLI help
+bun run dev -- doctor # Run diagnostics
+bun run dev -- daemon # Start autonomous daemon
+bun run typecheck     # Must pass with 0 errors
+bun test              # 60 tests, all must pass
+bun run build         # Compile to native binary → dist/spawnbot-*/bin/spawnbot
 ```

@@ -9,7 +9,7 @@ import { BunProc } from "../bun"
 import { Plugin } from "../plugin"
 import {
   ModelsDev,
-  Prompt, // kilocode_change
+  Prompt,
 } from "./models"
 import { NamedError } from "@/util/error"
 import { Auth } from "../auth"
@@ -32,7 +32,7 @@ import { createOpenAI } from "@ai-sdk/openai"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import { createOpenRouter, type LanguageModelV2 } from "@openrouter/ai-sdk-provider"
 import { createOpenaiCompatible as createGitHubCopilotOpenAICompatible } from "./sdk/copilot"
-import { createKilo } from "@/stubs/gateway" // kilocode_change
+import { createKilo } from "@/stubs/gateway"
 import { createXai } from "@ai-sdk/xai"
 import { createMistral } from "@ai-sdk/mistral"
 import { createGroq } from "@ai-sdk/groq"
@@ -49,7 +49,7 @@ import { GoogleAuth } from "google-auth-library"
 import { ProviderTransform } from "./transform"
 import { Installation } from "../installation"
 
-import { DEFAULT_HEADERS } from "@/kilocode/const" // kilocode_change
+import { DEFAULT_HEADERS } from "@/kilocode/const"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
@@ -100,7 +100,7 @@ export namespace Provider {
     "@ai-sdk/openai": createOpenAI,
     "@ai-sdk/openai-compatible": createOpenAICompatible,
     "@openrouter/ai-sdk-provider": createOpenRouter,
-    "@kilocode/kilo-gateway": createKilo, // kilocode_change
+    "@kilocode/kilo-gateway": createKilo,
     "@ai-sdk/xai": createXai,
     "@ai-sdk/mistral": createMistral,
     "@ai-sdk/groq": createGroq,
@@ -129,7 +129,7 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            // kilocode_change
+
             // TODO: Add adaptive thinking headers when @ai-sdk/anthropic supports it:
             // adaptive-thinking-2026-01-28,effort-2025-11-24,max-effort-2026-01-24
             "anthropic-beta":
@@ -348,7 +348,7 @@ export namespace Provider {
       return {
         autoload: false,
         options: {
-          headers: DEFAULT_HEADERS, // kilocode_change
+          headers: DEFAULT_HEADERS,
         },
       }
     },
@@ -356,7 +356,7 @@ export namespace Provider {
       return {
         autoload: false,
         options: {
-          headers: DEFAULT_HEADERS, // kilocode_change
+          headers: DEFAULT_HEADERS,
         },
       }
     },
@@ -439,11 +439,11 @@ export namespace Provider {
       return {
         autoload: false,
         options: {
-          headers: DEFAULT_HEADERS, // kilocode_change
+          headers: DEFAULT_HEADERS,
         },
       }
     },
-    // kilocode_change start - prevent opencode zen from auto-connecting without credentials
+
     opencode: async () => {
       return {
         autoload: false,
@@ -452,7 +452,7 @@ export namespace Provider {
         },
       }
     },
-    // kilocode_change end
+
     gitlab: async (input) => {
       const instanceUrl = Env.get("GITLAB_INSTANCE_URL") || "https://gitlab.com"
 
@@ -467,7 +467,7 @@ export namespace Provider {
       const providerConfig = config.provider?.["gitlab"]
 
       const aiGatewayHeaders = {
-        "User-Agent": `kilo/${Installation.VERSION} gitlab-ai-provider/${GITLAB_PROVIDER_VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`, // kilocode_change
+        "User-Agent": `kilo/${Installation.VERSION} gitlab-ai-provider/${GITLAB_PROVIDER_VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
         ...(providerConfig?.options?.aiGatewayHeaders || {}),
       }
 
@@ -566,7 +566,7 @@ export namespace Provider {
         },
       }
     },
-    // kilocode_change start
+
     kilo: async (input) => {
       const env = Env.all()
       const hasKey = await (async () => {
@@ -598,7 +598,7 @@ export namespace Provider {
         options,
       }
     },
-    // kilocode_change end
+
   }
 
   export const Model = z
@@ -666,11 +666,9 @@ export namespace Provider {
       headers: z.record(z.string(), z.string()),
       release_date: z.string(),
       variants: z.record(z.string(), z.record(z.string(), z.any())).optional(),
-
-      // kilocode_change start
       recommendedIndex: z.number().optional(),
       prompt: Prompt.optional().catch(undefined),
-      // kilocode_change end
+
     })
     .meta({
       ref: "Model",
@@ -751,12 +749,10 @@ export namespace Provider {
         interleaved: model.interleaved ?? false,
       },
       release_date: model.release_date,
-
-      // kilocode_change start
       variants: provider.id === "kilo" ? (model.variants ?? {}) : {},
       recommendedIndex: model.recommendedIndex,
       prompt: model.prompt,
-      // kilocode_change end
+
     }
 
     m.variants = mapValues(ProviderTransform.variants(m), (v) => v)
@@ -900,11 +896,9 @@ export namespace Provider {
           family: model.family ?? existingModel?.family ?? "",
           release_date: model.release_date ?? existingModel?.release_date ?? "",
           variants: {},
-
-          // kilocode_change start
           recommendedIndex: model.recommendedIndex ?? existingModel?.recommendedIndex,
           prompt: model.prompt ?? existingModel?.prompt,
-          // kilocode_change end
+
         }
         const merged = mergeDeep(ProviderTransform.variants(parsedModel), model.variants ?? {})
         parsedModel.variants = mapValues(
@@ -1254,11 +1248,11 @@ export namespace Provider {
         "gemini-2.5-flash",
         "gpt-5-nano",
       ]
-      // kilocode_change start
+
       if (providerID.startsWith("spawnbot")) {
         priority = ["auto-small"]
       }
-      // kilocode_change end
+
       if (providerID.startsWith("github-copilot")) {
         // prioritize free models for github copilot
         priority = ["gpt-5-mini", "claude-haiku-4.5", ...priority]
@@ -1293,15 +1287,11 @@ export namespace Provider {
         }
       }
     }
-
-    // kilocode_change start
     // Check if kilo provider is available before using it
     const kiloProvider = await state().then((state) => state.providers["kilo"])
     if (kiloProvider && kiloProvider.models["auto-small"]) {
       return getModel("spawnbot", "auto-small")
     }
-    // kilocode_change end
-
     return undefined
   }
 

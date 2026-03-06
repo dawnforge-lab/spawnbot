@@ -5,7 +5,7 @@ import { Installation } from "../../installation"
 
 export const UpgradeCommand = {
   command: "upgrade [target]",
-  describe: "upgrade spawnbot to the latest version", // kilocode_change
+  describe: "upgrade spawnbot to the latest version",
   builder: (yargs: Argv) => {
     return yargs
       .positional("target", {

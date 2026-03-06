@@ -14,7 +14,7 @@ import { Session } from "@/session"
 import { Discovery } from "./discovery"
 import { Glob } from "../util/glob"
 
-import { KilocodePaths } from "../kilocode/paths" // kilocode_change
+import { KilocodePaths } from "../kilocode/paths"
 import { ConfigPaths } from "../config/paths"
 
 export namespace Skill {
@@ -146,8 +146,6 @@ export namespace Skill {
     for (const match of builtinMatches) {
       await addSkill(match)
     }
-
-    // kilocode_change start - Scan Kilocode skill directories
     // Scanned before OpenCode so that OpenCode skills take precedence (last one wins)
     const kilocodeSkillDirs = await KilocodePaths.skillDirectories({
       projectDir: Instance.directory,
@@ -170,8 +168,6 @@ export namespace Skill {
         await addSkill(match)
       }
     }
-    // kilocode_change end
-
     // Scan .opencode/skill/ directories
     for (const dir of await Config.directories()) {
       const matches = await Glob.scan(KILO_SKILL_PATTERN, {

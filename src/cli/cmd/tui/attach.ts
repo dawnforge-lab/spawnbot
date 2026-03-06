@@ -8,7 +8,7 @@ import { existsSync } from "fs"
 
 export const AttachCommand = cmd({
   command: "attach <url>",
-  describe: "attach to a running spawnbot server", // kilocode_change
+  describe: "attach to a running spawnbot server",
   builder: (yargs) =>
     yargs
       .positional("url", {

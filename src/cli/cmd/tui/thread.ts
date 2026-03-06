@@ -16,7 +16,7 @@ import { TuiConfig } from "@/config/tui"
 import { Instance } from "@/project/instance"
 
 declare global {
-  const KILO_WORKER_PATH: string // kilocode_change
+  const KILO_WORKER_PATH: string
 }
 
 type RpcClient = ReturnType<typeof Rpc.client<typeof rpc>>
@@ -47,12 +47,12 @@ function createEventSource(client: RpcClient): EventSource {
 
 export const TuiThreadCommand = cmd({
   command: "$0 [project]",
-  describe: "start spawnbot tui", // kilocode_change
+  describe: "start spawnbot tui",
   builder: (yargs) =>
     withNetworkOptions(yargs)
       .positional("project", {
         type: "string",
-        describe: "path to start spawnbot in", // kilocode_change
+        describe: "path to start spawnbot in",
       })
       .option("model", {
         type: "string",
@@ -135,7 +135,7 @@ export const TuiThreadCommand = cmd({
       process.on("SIGUSR2", async () => {
         await client.call("reload", undefined)
       })
-      // kilocode_change start - graceful shutdown on external signals
+
       // The worker's postMessage for the RPC result may never be delivered
       // after shutdown because the worker's event loop drains. Send the
       // shutdown request without awaiting the response, wait for the worker
@@ -228,8 +228,6 @@ export const TuiThreadCommand = cmd({
         shutdownAndExit({ reason: "parent-exit", code: 0 })
       }, 1000)
       orphanWatch.unref()
-      // kilocode_change end
-
       const prompt = await iife(async () => {
         const piped = !process.stdin.isTTY ? await Bun.stdin.text() : undefined
         if (!args.prompt) return piped

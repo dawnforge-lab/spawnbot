@@ -1,11 +1,14 @@
 # Task Completion Checklist
 
 ## Before Committing
-1. **TypeScript compiles** — `bun run typecheck` (after fork)
-2. **Follow Kilo Code conventions** — namespaces, Zod schemas, tagged logger
-3. **No fallbacks** — errors must be transparent, never hidden
-4. **Check imports** — ES Module syntax, no circular dependencies
-5. **Bun-compatible** — use Bun APIs where Kilo Code does
+1. **TypeScript compiles** — `bun run typecheck` must pass with 0 errors
+2. **Tests pass** — `bun test --timeout 30000` (60 tests)
+3. **Build succeeds** — `bun run build` produces `dist/spawnbot-*/bin/spawnbot`
+4. **Follow Kilo Code conventions** — namespaces, Zod schemas, tagged logger
+5. **No fallbacks** — errors must be transparent, never hidden
+6. **Check imports** — ES Module syntax, no circular dependencies
+7. **Bun-compatible** — use Bun APIs where Kilo Code does
+8. **Stub completeness** — if adding Kilo-originated calls, ensure stubs in `src/stubs/` cover them
 
 ## After Committing
 - Update relevant Serena memories if the commit introduces new patterns or architectural changes

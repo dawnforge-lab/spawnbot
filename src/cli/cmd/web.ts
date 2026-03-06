@@ -3,7 +3,7 @@ import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Flag } from "../../flag/flag"
-import { Instance } from "../../project/instance" // kilocode_change
+import { Instance } from "../../project/instance"
 import open from "open"
 import { networkInterfaces } from "os"
 
@@ -32,7 +32,7 @@ function getNetworkIPs() {
 export const WebCommand = cmd({
   command: "web",
   builder: (yargs) => withNetworkOptions(yargs),
-  describe: "start spawnbot server and open web interface", // kilocode_change
+  describe: "start spawnbot server and open web interface",
   handler: async (args) => {
     if (!Flag.KILO_SERVER_PASSWORD) {
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  " + "KILO_SERVER_PASSWORD is not set; server is unsecured.")
@@ -75,8 +75,6 @@ export const WebCommand = cmd({
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Web interface:    ", UI.Style.TEXT_NORMAL, displayUrl)
       open(displayUrl).catch(() => {})
     }
-
-    // kilocode_change start - graceful signal shutdown
     const abort = new AbortController()
     const shutdown = async () => {
       try {
@@ -90,6 +88,6 @@ export const WebCommand = cmd({
     process.on("SIGINT", shutdown)
     process.on("SIGHUP", shutdown)
     await new Promise((resolve) => abort.signal.addEventListener("abort", resolve))
-    // kilocode_change end
+
   },
 })

@@ -45,7 +45,7 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
-import { PlanFollowup } from "@/kilocode/plan-followup" // kilocode_change
+import { PlanFollowup } from "@/kilocode/plan-followup"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -61,7 +61,7 @@ IMPORTANT:
 const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested structured output. You MUST use the StructuredOutput tool to provide your final response. Do NOT respond with plain text - you MUST call the StructuredOutput tool with your answer formatted according to the schema.`
 
 export namespace SessionPrompt {
-  // kilocode_change start - share follow-up trigger logic with tests
+
   export function shouldAskPlanFollowup(input: { messages: MessageV2.WithParts[]; abort: AbortSignal }) {
     if (input.abort.aborted) return false
     if (!["cli", "vscode"].includes(Flag.KILO_CLIENT)) return false
@@ -72,8 +72,6 @@ export namespace SessionPrompt {
         msg.parts.some((p) => p.type === "tool" && p.tool === "plan_exit" && p.state.status === "completed"),
       )
   }
-  // kilocode_change end
-
   const log = Log.create({ service: "session.prompt" })
 
   const state = Instance.state(
@@ -122,7 +120,7 @@ export namespace SessionPrompt {
     format: MessageV2.Format.optional(),
     system: z.string().optional(),
     variant: z.string().optional(),
-    // kilocode_change start
+
     editorContext: z
       .object({
         visibleFiles: z.array(z.string()).optional(),
@@ -132,7 +130,7 @@ export namespace SessionPrompt {
         timezone: z.string().optional(),
       })
       .optional(),
-    // kilocode_change end
+
     parts: z.array(
       z.discriminatedUnion("type", [
         MessageV2.TextPart.omit({
@@ -306,8 +304,6 @@ export namespace SessionPrompt {
         callbacks.push({ resolve, reject })
       })
     }
-
-    // kilocode_change start
     void Bus.publish(Session.Event.TurnOpen, { sessionID })
     let closeReason: Session.CloseReason = "completed"
     let finished = false
@@ -316,8 +312,6 @@ export namespace SessionPrompt {
       if (!finished) closeReason = abort.aborted ? "interrupted" : "error"
       await Bus.publish(Session.Event.TurnClose, { sessionID, reason: closeReason })
     })
-    // kilocode_change end
-
     // Structured output state
     // Note: On session resumption, state is reset but outputFormat is preserved
     // on the user message and will be retrieved from lastUser below
@@ -328,12 +322,12 @@ export namespace SessionPrompt {
     while (true) {
       SessionStatus.set(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })
-      // kilocode_change start
+
       if (abort.aborted) {
         closeReason = "interrupted"
         break
       }
-      // kilocode_change end
+
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
       let lastUser: MessageV2.User | undefined
@@ -359,12 +353,12 @@ export namespace SessionPrompt {
         !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
         lastUser.id < lastAssistant.id
       ) {
-        // kilocode_change start - ask follow-up when plan_exit tool was called
+
         if (shouldAskPlanFollowup({ messages: msgs, abort })) {
           const action = await PlanFollowup.ask({ sessionID, messages: msgs, abort })
           if (action === "continue") continue
         }
-        // kilocode_change end
+
         log.info("exiting loop", { sessionID })
         break
       }
@@ -746,14 +740,12 @@ export namespace SessionPrompt {
           break
         }
       }
-
-      // kilocode_change start
       if (result === "stop") {
         if (abort.aborted || processor.message.error?.name === "MessageAbortedError") closeReason = "interrupted"
         else if (processor.message.error) closeReason = "error"
         break
       }
-      // kilocode_change end
+
       if (result === "compact") {
         await SessionCompaction.create({
           sessionID,
@@ -765,7 +757,7 @@ export namespace SessionPrompt {
       continue
     }
     SessionCompaction.prune({ sessionID })
-    // kilocode_change start
+
     finished = true
     // Return the stored interrupted assistant turn before surfacing AbortError.
     for await (const item of MessageV2.stream(sessionID)) {
@@ -777,7 +769,7 @@ export namespace SessionPrompt {
       return item
     }
     if (abort.aborted) abort.throwIfAborted()
-    // kilocode_change end
+
     throw new Error("Impossible")
   })
 
@@ -1032,7 +1024,7 @@ export namespace SessionPrompt {
       system: input.system,
       format: input.format,
       variant,
-      editorContext: input.editorContext, // kilocode_change
+      editorContext: input.editorContext,
     }
     using _ = defer(() => InstructionPrompt.clear(info.id))
 
@@ -1394,9 +1386,9 @@ export namespace SessionPrompt {
         })
       }
       const wasPlan = input.messages.some((msg) => msg.info.role === "assistant" && msg.info.agent === "plan")
-      // kilocode_change start - renamed from "build" to "code"
+
       if (wasPlan && input.agent.name === "code") {
-        // kilocode_change end
+
         userMessage.parts.push({
           id: Identifier.ascending("part"),
           messageID: userMessage.info.id,

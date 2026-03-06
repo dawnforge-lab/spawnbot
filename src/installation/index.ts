@@ -6,8 +6,6 @@ import { NamedError } from "@/util/error"
 import { Log } from "../util/log"
 import { iife } from "@/util/iife"
 import { Flag } from "../flag/flag"
-
-// kilocode_change - renamed build-time globals
 declare global {
   const KILO_VERSION: string
   const KILO_CHANNEL: string
@@ -62,8 +60,6 @@ export namespace Installation {
     if (process.execPath.includes(path.join(".opencode", "bin"))) return "curl"
     if (process.execPath.includes(path.join(".local", "bin"))) return "curl"
     const exec = process.execPath.toLowerCase()
-
-    // kilocode_change start - removed yarn check since upgrade() doesn't support it
     const checks = [
       {
         name: "npm" as const,
@@ -90,8 +86,6 @@ export namespace Installation {
         command: () => $`choco list --limit-output opencode`.throws(false).quiet().text(),
       },
     ]
-    // kilocode_change end
-
     checks.sort((a, b) => {
       const aMatches = exec.includes(a.name)
       const bMatches = exec.includes(b.name)
@@ -102,10 +96,10 @@ export namespace Installation {
 
     for (const check of checks) {
       const output = await check.command()
-      // kilocode_change start - check for @kilocode/cli instead of opencode-ai for JS package managers
+
       const installedName =
         check.name === "brew" || check.name === "choco" || check.name === "scoop" ? "opencode" : "@kilocode/cli"
-      // kilocode_change end
+
       if (output.includes(installedName)) {
         return check.name
       }
@@ -139,13 +133,13 @@ export namespace Installation {
         })
         break
       case "npm":
-        cmd = $`npm install -g @kilocode/cli@${target}` // kilocode_change
+        cmd = $`npm install -g @kilocode/cli@${target}`
         break
       case "pnpm":
-        cmd = $`pnpm install -g @kilocode/cli@${target}` // kilocode_change
+        cmd = $`pnpm install -g @kilocode/cli@${target}`
         break
       case "bun":
-        cmd = $`bun install -g @kilocode/cli@${target}` // kilocode_change
+        cmd = $`bun install -g @kilocode/cli@${target}`
         break
       case "brew": {
         const formula = await getBrewFormula()
@@ -213,8 +207,6 @@ export namespace Installation {
         })
         .then((data: any) => data.versions.stable)
     }
-
-    // kilocode_change start - support npm/pnpm/bun for kilocode, fetch from @kilocode/cli on npm registry
     if (detectedMethod === "npm" || detectedMethod === "pnpm" || detectedMethod === "bun") {
       const registry = await iife(async () => {
         const r = (await $`npm config get registry`.quiet().nothrow().text()).trim()
@@ -229,8 +221,6 @@ export namespace Installation {
         })
         .then((data: any) => data.version)
     }
-    // kilocode_change end
-
     if (detectedMethod === "choco") {
       return fetch(
         "https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27opencode%27%20and%20IsLatestVersion&$select=Version",

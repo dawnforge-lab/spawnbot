@@ -14,7 +14,7 @@ import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
-import { KiloNews } from "@/kilocode/components/kilo-news" // kilocode_change
+import { KiloNews } from "@/kilocode/components/kilo-news"
 
 // TODO: what is the best way to do this?
 let once = false
@@ -37,7 +37,7 @@ export function Home() {
 
   const isFirstTimeUser = createMemo(() => sync.data.session.length === 0)
   const tipsHidden = createMemo(() => kv.get("tips_hidden", false))
-  const newsHidden = createMemo(() => kv.get("news_hidden", false)) // kilocode_change
+  const newsHidden = createMemo(() => kv.get("news_hidden", false))
   const showTips = createMemo(() => {
     // Don't show tips for first-time users
     if (isFirstTimeUser()) return false
@@ -55,7 +55,7 @@ export function Home() {
         dialog.clear()
       },
     },
-    // kilocode_change start
+
     {
       title: newsHidden() ? "Show news" : "Hide news",
       value: "news.toggle",
@@ -66,7 +66,7 @@ export function Home() {
         dialog.clear()
       },
     },
-    // kilocode_change end
+
   ])
 
   const Hint = (

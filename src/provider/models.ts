@@ -5,17 +5,15 @@ import z from "zod"
 import { Installation } from "../installation"
 import { Flag } from "../flag/flag"
 import { lazy } from "@/util/lazy"
-import { Config } from "../config/config" // kilocode_change
-import { ModelCache } from "./model-cache" // kilocode_change
-import { Auth } from "../auth" // kilocode_change
-import { KILO_OPENROUTER_BASE } from "@/stubs/gateway" // kilocode_change
+import { Config } from "../config/config"
+import { ModelCache } from "./model-cache"
+import { Auth } from "../auth"
+import { KILO_OPENROUTER_BASE } from "@/stubs/gateway"
 import { Filesystem } from "../util/filesystem"
 
 // Try to import bundled snapshot (generated at build time)
 // Falls back to undefined in dev mode when snapshot doesn't exist
 /* @ts-ignore */
-
-// kilocode_change start
 const normalizeKiloBaseURL = (baseURL: string | undefined, orgId: string | undefined): string | undefined => {
   if (!baseURL) return undefined
   const trimmed = baseURL.replace(/\/+$/, "")
@@ -30,8 +28,6 @@ const normalizeKiloBaseURL = (baseURL: string | undefined, orgId: string | undef
 }
 
 export const Prompt = z.enum(["codex", "gemini", "beast", "anthropic", "trinity", "anthropic_without_todo"])
-// kilocode_change end
-
 export namespace ModelsDev {
   const log = Log.create({ service: "models.dev" })
   const filepath = path.join(Global.Path.cache, "models.json")
@@ -82,12 +78,8 @@ export namespace ModelsDev {
         output: z.array(z.enum(["text", "audio", "image", "video", "pdf"])),
       })
       .optional(),
-
-    // kilocode_change start
     recommendedIndex: z.number().optional(),
     prompt: Prompt.optional().catch(undefined),
-    // kilocode_change end
-
     experimental: z.boolean().optional(),
     status: z.enum(["alpha", "beta", "deprecated"]).optional(),
     options: z.record(z.string(), z.any()),
@@ -127,7 +119,7 @@ export namespace ModelsDev {
 
   export async function get() {
     const result = await Data()
-    // kilocode_change start
+
     const providers = result as Record<string, Provider>
 
     if (providers["kilo"]) {
@@ -138,11 +130,11 @@ export namespace ModelsDev {
     if (!providers["kilo"]) {
       const config = await Config.get()
       const kiloOptions = config.provider?.kilo?.options
-      // kilocode_change start - resolve org ID from auth (OAuth accountId) not just config
+
       const kiloAuth = await Auth.get("kilo")
       const kiloOrgId =
         kiloOptions?.kilocodeOrganizationId ?? (kiloAuth?.type === "oauth" ? kiloAuth.accountId : undefined)
-      // kilocode_change end
+
       const normalizedBaseURL = normalizeKiloBaseURL(kiloOptions?.baseURL, kiloOrgId)
       const kiloFetchOptions = {
         ...(normalizedBaseURL ? { baseURL: normalizedBaseURL } : {}),
@@ -168,7 +160,7 @@ export namespace ModelsDev {
     }
 
     return providers
-    // kilocode_change end
+
   }
 
   export async function refresh() {

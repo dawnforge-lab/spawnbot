@@ -1,4 +1,4 @@
-// kilocode_change - use Kilo-specific tips component
+
 export { Tips } from "@/kilocode/components/tips"
 
 import { For } from "solid-js"

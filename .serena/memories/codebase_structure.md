@@ -65,3 +65,5 @@ kilocode/       # Kilo-specific branding/telemetry (TO STRIP)
 - **Memory tools**: `src/tool/memory.ts` — memory_store, memory_recall, memory_browse, memory_delete
 - **Telegram tools**: `src/tool/telegram.ts` — tg_send, tg_photo, tg_react
 - **Custom tools**: `@kilocode/plugin` tool format — `tool({ description, args, execute })` in `.spawnbot/tools/*.ts`
+- **Build script**: `script/build.ts` — compiles to native Bun binary with bundled migrations and solid JSX plugin
+- **Type stubs**: `src/stubs/telemetry.ts` (Telemetry + Identity), `src/stubs/gateway.ts` (Kilo cloud features), `src/stubs/kilo-gateway.d.ts` (TUI type declarations)

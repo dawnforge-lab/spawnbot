@@ -1,4 +1,4 @@
-// kilocode_change new file
+
 import { fetchKiloModels } from "@/stubs/gateway"
 import { Config } from "../config/config"
 import { Auth } from "../auth"
@@ -185,13 +185,9 @@ export namespace ModelCache {
       if (providerConfig?.options?.apiKey) {
         options.kilocodeToken = providerConfig.options.apiKey
       }
-
-      // kilocode_change start
       if (providerConfig?.options?.kilocodeOrganizationId) {
         options.kilocodeOrganizationId = providerConfig.options.kilocodeOrganizationId
       }
-      // kilocode_change end
-
       // Get from Auth
       const auth = await Auth.get(providerID)
       if (auth) {
@@ -199,11 +195,11 @@ export namespace ModelCache {
           options.kilocodeToken = auth.key
         } else if (auth.type === "oauth") {
           options.kilocodeToken = auth.access
-          // kilocode_change start - read org ID from OAuth accountId for enterprise model filtering
+
           if (auth.accountId) {
             options.kilocodeOrganizationId = auth.accountId
           }
-          // kilocode_change end
+
         }
       }
 

@@ -36,11 +36,11 @@ import { Control } from "@/control"
 import { ConfigPaths } from "./paths"
 import { Filesystem } from "@/util/filesystem"
 
-import { ModesMigrator } from "../kilocode/modes-migrator" // kilocode_change
-import { RulesMigrator } from "../kilocode/rules-migrator" // kilocode_change
-import { WorkflowsMigrator } from "../kilocode/workflows-migrator" // kilocode_change
-import { McpMigrator } from "../kilocode/mcp-migrator" // kilocode_change
-import { IgnoreMigrator } from "../kilocode/ignore-migrator" // kilocode_change
+import { ModesMigrator } from "../kilocode/modes-migrator"
+import { RulesMigrator } from "../kilocode/rules-migrator"
+import { WorkflowsMigrator } from "../kilocode/workflows-migrator"
+import { McpMigrator } from "../kilocode/mcp-migrator"
+import { IgnoreMigrator } from "../kilocode/ignore-migrator"
 
 export namespace Config {
   const ModelId = z.string().meta({ $ref: "https://models.dev/model-schema.json#/$defs/Model" })
@@ -52,11 +52,11 @@ export namespace Config {
   function systemManagedConfigDir(): string {
     switch (process.platform) {
       case "darwin":
-        return "/Library/Application Support/kilo" // kilocode_change
+        return "/Library/Application Support/kilo"
       case "win32":
-        return path.join(process.env.ProgramData || "C:\\ProgramData", "spawnbot") // kilocode_change
+        return path.join(process.env.ProgramData || "C:\\ProgramData", "spawnbot")
       default:
-        return "/etc/spawnbot" // kilocode_change
+        return "/etc/spawnbot"
     }
   }
 
@@ -91,8 +91,6 @@ export namespace Config {
     // 6) Inline config (KILO_CONFIG_CONTENT)
     // Managed config directory is enterprise-only and always overrides everything above.
     let result: Info = {}
-
-    // kilocode_change start - Load Kilocode configs first (lowest precedence)
     // Load Kilocode custom modes (legacy fallback)
     try {
       const kilocodeMigration = await ModesMigrator.migrate({
@@ -166,8 +164,6 @@ export namespace Config {
     } catch (err) {
       log.warn("failed to load kilocode ignore patterns", { error: err })
     }
-    // kilocode_change end
-
     // Load remote/well-known config (overrides Kilocode legacy configs)
     // This allows organizations to provide default configs that users can override
     for (const [key, value] of Object.entries(auth)) {
@@ -181,7 +177,7 @@ export namespace Config {
         const wellknown = (await response.json()) as any
         const remoteConfig = wellknown.config ?? {}
         // Add $schema to prevent load() from trying to write back to a non-existent file
-        if (!remoteConfig.$schema) remoteConfig.$schema = "https://kilo.ai/config.json" // kilocode_change
+        if (!remoteConfig.$schema) remoteConfig.$schema = "https://kilo.ai/config.json"
         result = mergeConfigConcatArrays(
           result,
           await load(JSON.stringify(remoteConfig), {
@@ -208,7 +204,7 @@ export namespace Config {
 
     // Project config overrides global and remote config.
     if (!Flag.KILO_DISABLE_PROJECT_CONFIG) {
-      // kilocode_change start
+
       for (const file of ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
         result = mergeConfigConcatArrays(result, await loadFile(file))
       }
@@ -228,7 +224,7 @@ export namespace Config {
     const deps = []
 
     for (const dir of unique(directories)) {
-      // kilocode_change start
+
       if (dir.endsWith(".spawnbot") || dir.endsWith(".kilo") || dir.endsWith(".opencode") || dir === Flag.KILO_CONFIG_DIR) {
         for (const file of ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
           log.debug(`loading config from ${path.join(dir, file)}`)
@@ -270,7 +266,7 @@ export namespace Config {
     // which would fail on system directories requiring elevated permissions
     // This way it only loads config file and not skills/plugins/commands
     if (existsSync(managedDir)) {
-      // kilocode_change start
+
       for (const file of ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
         result = mergeConfigConcatArrays(result, await loadFile(path.join(managedDir, file)))
       }
@@ -342,7 +338,7 @@ export namespace Config {
     }))
     json.dependencies = {
       ...json.dependencies,
-      "@kilocode/plugin": targetVersion, // kilocode_change
+      "@kilocode/plugin": targetVersion,
     }
     await Filesystem.writeJson(pkg, json)
 
@@ -392,7 +388,7 @@ export namespace Config {
 
     const parsed = await Filesystem.readJson<{ dependencies?: Record<string, string> }>(pkg).catch(() => null)
     const dependencies = parsed?.dependencies ?? {}
-    // kilocode_change start
+
     const depVersion = dependencies["@kilocode/plugin"]
     if (!depVersion) return true
 
@@ -406,7 +402,7 @@ export namespace Config {
       })
       return true
     }
-    // kilocode_change end
+
     if (depVersion === targetVersion) return false
     return true
   }
@@ -491,8 +487,6 @@ export namespace Config {
         return undefined
       })
       if (!md) continue
-
-      // kilocode_change start
       const patterns = [
         "/.spawnbot/agent/",
         "/.spawnbot/agents/",
@@ -503,7 +497,7 @@ export namespace Config {
         "/agent/",
         "/agents/",
       ]
-      // kilocode_change end
+
       const file = rel(item, patterns) ?? path.basename(item)
       const agentName = trim(file)
 
@@ -1013,7 +1007,7 @@ export namespace Config {
       terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
       terminal_title_toggle: z.string().optional().default("none").describe("Toggle terminal title"),
       tips_toggle: z.string().optional().default("<leader>h").describe("Toggle tips on home screen"),
-      news_toggle: z.string().optional().default("none").describe("Toggle news on home screen"), // kilocode_change
+      news_toggle: z.string().optional().default("none").describe("Toggle news on home screen"),
       display_thinking: z.string().optional().default("none").describe("Toggle thinking blocks visibility"),
     })
     .strict()
@@ -1134,14 +1128,14 @@ export namespace Config {
       small_model: ModelId.describe(
         "Small model to use for tasks like title generation in the format of provider/model",
       ).optional(),
-      // kilocode_change start - renamed from "build" to "code"
+
       default_agent: z
         .string()
         .optional()
         .describe(
           "Default agent to use when none is specified. Must be a primary agent. Falls back to 'code' if not set or if the specified agent is invalid.",
         ),
-      // kilocode_change end
+
       username: z
         .string()
         .optional()
@@ -1159,9 +1153,9 @@ export namespace Config {
           // primary
           plan: Agent.optional(),
           build: Agent.optional(),
-          debug: Agent.optional(), // kilocode_change
-          orchestrator: Agent.optional(), // kilocode_change
-          ask: Agent.optional(), // kilocode_change
+          debug: Agent.optional(),
+          orchestrator: Agent.optional(),
+          ask: Agent.optional(),
           // subagent
           general: Agent.optional(),
           explore: Agent.optional(),
@@ -1266,9 +1260,9 @@ export namespace Config {
         .object({
           disable_paste_summary: z.boolean().optional(),
           batch_tool: z.boolean().optional().describe("Enable the batch tool"),
-          // kilocode_change start - enable telemetry by default
+
           openTelemetry: z.boolean().default(true).describe("Enable telemetry. Set to false to opt-out."),
-          // kilocode_change end
+
           primary_tools: z
             .array(z.string())
             .optional()
@@ -1313,7 +1307,7 @@ export namespace Config {
         .then(async (mod) => {
           const { provider, model, ...rest } = mod.default
           if (provider && model) result.model = `${provider}/${model}`
-          result["$schema"] = "https://kilo.ai/config.json" // kilocode_change
+          result["$schema"] = "https://kilo.ai/config.json"
           result = mergeDeep(result, rest)
           await Filesystem.writeJson(path.join(Global.Path.config, "config.json"), result)
           await fs.unlink(legacy)
@@ -1357,8 +1351,8 @@ export namespace Config {
     const parsed = Info.safeParse(normalized)
     if (parsed.success) {
       if (!parsed.data.$schema && isFile) {
-        parsed.data.$schema = "https://kilo.ai/config.json" // kilocode_change
-        const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://kilo.ai/config.json",') // kilocode_change
+        parsed.data.$schema = "https://kilo.ai/config.json"
+        const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://kilo.ai/config.json",')
         await Bun.write(options.path, updated).catch(() => {})
       }
       const data = parsed.data
@@ -1414,7 +1408,7 @@ export namespace Config {
   }
 
   function globalConfigFile() {
-    // kilocode_change start
+
     const candidates = ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json", "config.json"].map((file) =>
       path.join(Global.Path.config, file),
     )

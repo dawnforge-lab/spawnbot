@@ -59,8 +59,6 @@ export const ModelsCommand = cmd({
           printModels(args.provider, args.verbose)
           return
         }
-
-        // kilocode_change start
         const providerIDs = Object.keys(providers).sort((a, b) => {
           const aIsKilo = a === "kilo" || a.startsWith("opencode")
           const bIsKilo = b === "kilo" || b.startsWith("opencode")
@@ -68,8 +66,6 @@ export const ModelsCommand = cmd({
           if (!aIsKilo && bIsKilo) return 1
           return a.localeCompare(b)
         })
-        // kilocode_change end
-
         for (const providerID of providerIDs) {
           printModels(providerID, args.verbose)
         }

@@ -24,7 +24,7 @@ interface RemovalTargets {
 
 export const UninstallCommand = {
   command: "uninstall",
-  describe: "uninstall spawnbot and remove all related files", // kilocode_change
+  describe: "uninstall spawnbot and remove all related files",
   builder: (yargs: Argv) =>
     yargs
       .option("keep-config", {
@@ -55,7 +55,7 @@ export const UninstallCommand = {
     UI.empty()
     UI.println(UI.logo("  "))
     UI.empty()
-    prompts.intro("Uninstall Kilo") // kilocode_change
+    prompts.intro("Uninstall Kilo")
 
     const method = await Installation.method()
     prompts.log.info(`Installation method: ${method}`)
@@ -129,13 +129,13 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string> = {
-      npm: "npm uninstall -g @kilocode/cli", // kilocode_change
-      pnpm: "pnpm uninstall -g @kilocode/cli", // kilocode_change
-      bun: "bun remove -g @kilocode/cli", // kilocode_change
-      yarn: "yarn global remove @kilocode/cli", // kilocode_change
+      npm: "npm uninstall -g @kilocode/cli",
+      pnpm: "pnpm uninstall -g @kilocode/cli",
+      bun: "bun remove -g @kilocode/cli",
+      yarn: "yarn global remove @kilocode/cli",
       brew: "brew uninstall opencode",
-      choco: "choco uninstall kilo", // kilocode_change
-      scoop: "scoop uninstall kilo", // kilocode_change
+      choco: "choco uninstall kilo",
+      scoop: "scoop uninstall kilo",
     }
     prompts.log.info(`  ✓ Package: ${cmds[method] || method}`)
   }
@@ -219,7 +219,7 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
     const binDir = path.dirname(targets.binary)
     if (binDir.includes(".opencode") || binDir.includes(".kilo")) {
-      // kilocode_change
+
       prompts.log.info(`  rmdir "${binDir}" 2>/dev/null`)
     }
   }
@@ -233,7 +233,7 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
   }
 
   UI.empty()
-  prompts.log.success("Thank you for using Kilo!") // kilocode_change
+  prompts.log.success("Thank you for using Kilo!")
 }
 
 async function getShellConfigFile(): Promise<string | null> {
@@ -270,7 +270,7 @@ async function getShellConfigFile(): Promise<string | null> {
     if (!exists) continue
 
     const content = await Filesystem.readText(file).catch(() => "")
-    // kilocode_change start - detect both opencode and kilo markers
+
     if (
       content.includes("# opencode") ||
       content.includes(".opencode/bin") ||
@@ -279,7 +279,7 @@ async function getShellConfigFile(): Promise<string | null> {
     ) {
       return file
     }
-    // kilocode_change end
+
   }
 
   return null
@@ -294,8 +294,6 @@ async function cleanShellConfig(file: string) {
 
   for (const line of lines) {
     const trimmed = line.trim()
-
-    // kilocode_change start - clean both opencode and kilo markers
     if (trimmed === "# opencode" || trimmed === "# kilo") {
       skip = true
       continue
@@ -314,8 +312,6 @@ async function cleanShellConfig(file: string) {
     ) {
       continue
     }
-    // kilocode_change end
-
     filtered.push(line)
   }
 

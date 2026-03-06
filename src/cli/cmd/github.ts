@@ -239,9 +239,9 @@ export const GithubInstallCommand = cmd({
                 `    1. Commit the \`${WORKFLOW_FILE}\` file and push`,
                 step2,
                 "",
-                "    3. Go to a GitHub issue and comment `/kilo summarize` to see the agent in action", // kilocode_change
+                "    3. Go to a GitHub issue and comment `/kilo summarize` to see the agent in action",
                 "",
-                "   Learn more about the GitHub agent - https://kilo.ai/docs/github/#usage-examples", // kilocode_change
+                "   Learn more about the GitHub agent - https://kilo.ai/docs/github/#usage-examples",
               ].join("\n"),
             )
           }
@@ -265,7 +265,7 @@ export const GithubInstallCommand = cmd({
 
           async function promptProvider() {
             const priority: Record<string, number> = {
-              kilo: 0, // kilocode_change
+              kilo: 0,
               anthropic: 1,
               openai: 2,
               google: 3,
@@ -323,7 +323,7 @@ export const GithubInstallCommand = cmd({
             if (installation) return s.stop("GitHub app already installed")
 
             // Open browser
-            const url = "https://github.com/apps/kiloconnect" // kilocode_change
+            const url = "https://github.com/apps/kiloconnect"
             const command =
               process.platform === "darwin"
                 ? `open "${url}"`
@@ -359,16 +359,16 @@ export const GithubInstallCommand = cmd({
             s.stop("Installed GitHub app")
 
             async function getInstallation() {
-              // kilocode_change start - updated to new endpoint
+
               return await fetch(`https://api.kilo.ai/api/integrations/github/check-installation?owner=${app.owner}`)
                 .then((res) => res.json())
                 .then((data) => data.installation)
-              // kilocode_change end
+
             }
           }
 
           async function addWorkflowFiles() {
-            // kilocode_change start - updated workflow template with Kilo branding and gateway secrets
+
             const providerEnvStr =
               provider === "amazon-bedrock"
                 ? ""
@@ -415,8 +415,6 @@ jobs:
         with:
           model: ${provider}/${model}`,
             )
-            // kilocode_change end
-
             prompts.log.success(`Added workflow file: "${WORKFLOW_FILE}"`)
           }
         }
@@ -482,7 +480,7 @@ export const GithubRunCommand = cmd({
           ? (payload as IssueCommentEvent | IssuesEvent).issue.number
           : (payload as PullRequestEvent | PullRequestReviewCommentEvent).pull_request.number
       const runUrl = `/${owner}/${repo}/actions/runs/${runId}`
-      const shareBaseUrl = isMock ? "https://dev.kilo.ai" : "https://kilo.ai" // kilocode_change
+      const shareBaseUrl = isMock ? "https://dev.kilo.ai" : "https://kilo.ai"
 
       let appToken: string
       let octoRest: Octokit
@@ -530,7 +528,7 @@ export const GithubRunCommand = cmd({
           await addReaction(commentType)
         }
 
-        // Setup kilo session // kilocode_change
+        // Setup kilo session
         const repoData = await fetchRepo()
         session = await Session.create({
           permission: [
@@ -548,7 +546,7 @@ export const GithubRunCommand = cmd({
           await Session.share(session.id)
           return session.id.slice(-8)
         })()
-        console.log("kilo session", session.id) // kilocode_change
+        console.log("kilo session", session.id)
 
         // Handle event types:
         // REPO_EVENTS (schedule, workflow_dispatch): no issue/PR context, output to logs/PR only
@@ -721,7 +719,7 @@ export const GithubRunCommand = cmd({
 
       function normalizeOidcBaseUrl(): string {
         const value = process.env["OIDC_BASE_URL"]
-        if (!value) return "https://api.kilo.ai" // kilocode_change
+        if (!value) return "https://api.kilo.ai"
         return value.replace(/\/+$/, "")
       }
 
@@ -770,7 +768,7 @@ export const GithubRunCommand = cmd({
         }
 
         const reviewContext = getReviewCommentContext()
-        const mentions = (process.env["MENTIONS"] || "/kilo,/kc") // kilocode_change
+        const mentions = (process.env["MENTIONS"] || "/kilo,/kc")
           .split(",")
           .map((m) => m.trim().toLowerCase())
           .filter(Boolean)
@@ -917,7 +915,7 @@ export const GithubRunCommand = cmd({
       }
 
       async function chat(message: string, files: PromptFiles = []) {
-        console.log("Sending message to kilo...") // kilocode_change
+        console.log("Sending message to kilo...")
 
         const result = await SessionPrompt.prompt({
           sessionID: session.id,
@@ -1013,7 +1011,7 @@ export const GithubRunCommand = cmd({
 
       async function getOidcToken() {
         try {
-          return await core.getIDToken("kilo-github-action") // kilocode_change
+          return await core.getIDToken("kilo-github-action")
         } catch (error) {
           console.error("Failed to get OIDC token:", error instanceof Error ? error.message : error)
           throw new Error(
@@ -1023,7 +1021,7 @@ export const GithubRunCommand = cmd({
       }
 
       async function exchangeForAppToken(token: string) {
-        // kilocode_change start - updated endpoint URLs per new API structure
+
         const response = token.startsWith("github_pat_")
           ? await fetch(`${oidcBaseUrl}/api/integrations/github/exchange-token-with-pat`, {
               method: "POST",
@@ -1039,8 +1037,6 @@ export const GithubRunCommand = cmd({
                 Authorization: `Bearer ${token}`,
               },
             })
-        // kilocode_change end
-
         if (!response.ok) {
           const responseJson = (await response.json()) as { error?: string }
           throw new Error(
@@ -1118,9 +1114,9 @@ export const GithubRunCommand = cmd({
           .join("")
         if (type === "schedule" || type === "dispatch") {
           const hex = crypto.randomUUID().slice(0, 6)
-          return `kilo/${type}-${hex}-${timestamp}` // kilocode_change
+          return `kilo/${type}-${hex}-${timestamp}`
         }
-        return `kilo/${type}${issueId}-${timestamp}` // kilocode_change
+        return `kilo/${type}${issueId}-${timestamp}`
       }
 
       async function pushToNewBranch(summary: string, branch: string, commit: boolean, isSchedule: boolean) {
@@ -1392,10 +1388,10 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
       }
 
       function footer(opts?: { image?: boolean }) {
-        // kilocode_change start - simplified footer with text branding (no image backend yet)
+
         const share = shareId ? `[kilo session](${shareBaseUrl}/s/${shareId})&nbsp;&nbsp;|&nbsp;&nbsp;` : ""
         return `\n\n---\n*Powered by [Kilo](https://kilo.ai)*&nbsp;&nbsp;|&nbsp;&nbsp;${share}[github run](${runUrl})`
-        // kilocode_change end
+
       }
 
       async function fetchRepo() {
@@ -1455,7 +1451,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
         return [
           "<github_action_context>",
           "You are running as a GitHub Action. Important:",
-          "- Git push and PR creation are handled AUTOMATICALLY by the kilo infrastructure after your response", // kilocode_change
+          "- Git push and PR creation are handled AUTOMATICALLY by the kilo infrastructure after your response",
           "- Do NOT include warnings or disclaimers about GitHub tokens, workflow permissions, or PR creation capabilities",
           "- Do NOT suggest manual steps for creating PRs or pushing code - this happens automatically",
           "- Focus only on the code changes and your analysis/response",
@@ -1593,7 +1589,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
         return [
           "<github_action_context>",
           "You are running as a GitHub Action. Important:",
-          "- Git push and PR creation are handled AUTOMATICALLY by the kilo infrastructure after your response", // kilocode_change
+          "- Git push and PR creation are handled AUTOMATICALLY by the kilo infrastructure after your response",
           "- Do NOT include warnings or disclaimers about GitHub tokens, workflow permissions, or PR creation capabilities",
           "- Do NOT suggest manual steps for creating PRs or pushing code - this happens automatically",
           "- Focus only on the code changes and your analysis/response",

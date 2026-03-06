@@ -133,8 +133,6 @@ async function backupAndStripLegacy(file: string, source: string) {
       return false
     })
 }
-
-// kilocode_change start: use kilo directory everywhere
 async function opencodeFiles(input: { directories: string[]; managed: string }) {
   const project = Flag.KILO_DISABLE_PROJECT_CONFIG
     ? []
@@ -154,4 +152,4 @@ async function opencodeFiles(input: { directories: string[]; managed: string }) 
   )
   return existing.filter((file): file is string => !!file)
 }
-// kilocode_change end
+

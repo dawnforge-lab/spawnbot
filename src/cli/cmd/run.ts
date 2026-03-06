@@ -220,7 +220,7 @@ function normalizePath(input?: string) {
 
 export const RunCommand = cmd({
   command: "run [message..]",
-  describe: "run spawnbot with a message", // kilocode_change
+  describe: "run spawnbot with a message",
   builder: (yargs: Argv) => {
     return (
       yargs
@@ -298,14 +298,14 @@ export const RunCommand = cmd({
           describe: "show thinking blocks",
           default: false,
         })
-        // kilocode_change start - auto approve all permissions
+
         .option("auto", {
           type: "boolean",
           describe: "auto-approve all permissions (for autonomous/pipeline usage)",
           default: false,
         })
     )
-    // kilocode_change end
+
   },
   handler: async (args) => {
     let message = [...args.message, ...(args["--"] || [])]
@@ -548,8 +548,6 @@ export const RunCommand = cmd({
           if (event.type === "permission.asked") {
             const permission = event.properties
             if (permission.sessionID !== sessionID) continue
-
-            // kilocode_change start - In auto mode, automatically approve all permissions without prompting
             if (args.auto) {
               await sdk.permission.respond({
                 sessionID,
@@ -558,8 +556,6 @@ export const RunCommand = cmd({
               })
               continue
             }
-            // kilocode_change end
-
             UI.println(
               UI.Style.TEXT_WARNING_BOLD + "!",
               UI.Style.TEXT_NORMAL +

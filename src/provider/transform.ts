@@ -39,7 +39,7 @@ export namespace ProviderTransform {
       case "@ai-sdk/gateway":
         return "gateway"
       case "@openrouter/ai-sdk-provider":
-      case "@kilocode/kilo-gateway": // kilocode_change
+      case "@kilocode/kilo-gateway":
         return "openrouter"
     }
     return undefined
@@ -333,12 +333,10 @@ export namespace ProviderTransform {
   const OPENAI_EFFORTS = ["none", "minimal", ...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
 
   export function variants(model: Provider.Model): Record<string, Record<string, any>> {
-    // kilocode_change start
+
     if (model.api.npm === "@kilocode/kilo-gateway" && model.variants && Object.keys(model.variants).length > 0) {
       return model.variants
     }
-    // kilocode_change end
-
     if (!model.capabilities.reasoning) return {}
 
     const id = model.id.toLowerCase()
@@ -360,7 +358,7 @@ export namespace ProviderTransform {
     // see: https://docs.x.ai/docs/guides/reasoning#control-how-hard-the-model-thinks
     if (id.includes("grok") && id.includes("grok-3-mini")) {
       if (model.api.npm === "@openrouter/ai-sdk-provider" || model.api.npm === "@kilocode/kilo-gateway") {
-        // kilocode_change - add Kilo Gateway support
+
         return {
           low: { reasoning: { effort: "low" } },
           high: { reasoning: { effort: "high" } },
@@ -374,7 +372,7 @@ export namespace ProviderTransform {
     if (id.includes("grok")) return {}
 
     switch (model.api.npm) {
-      case "@kilocode/kilo-gateway": // kilocode_change
+      case "@kilocode/kilo-gateway":
       case "@openrouter/ai-sdk-provider":
         if (!model.id.includes("gpt") && !model.id.includes("gemini-3") && !model.id.includes("claude")) return {}
         return Object.fromEntries(OPENAI_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
@@ -707,7 +705,7 @@ export namespace ProviderTransform {
     }
 
     if (input.model.api.npm === "@openrouter/ai-sdk-provider" || input.model.api.npm === "@kilocode/kilo-gateway") {
-      // kilocode_change
+
       result["usage"] = {
         include: true,
       }
@@ -831,7 +829,7 @@ export namespace ProviderTransform {
       return { thinkingConfig: { thinkingBudget: 0 } }
     }
     if (model.providerID === "openrouter" || model.api.npm === "@kilocode/kilo-gateway") {
-      // kilocode_change - add Kilo Gateway support
+
       if (model.api.id.includes("google")) {
         return { reasoning: { enabled: false } }
       }

@@ -80,7 +80,7 @@ import { formatTranscript } from "../../util/transcript"
 import { UI } from "@/cli/ui.ts"
 import { useTuiConfig } from "../../context/tui-config"
 
-import { formatMarkdownTables } from "../../util/markdown" // kilocode_change
+import { formatMarkdownTables } from "../../util/markdown"
 
 addDefaultParsers(parsers.parsers)
 
@@ -215,8 +215,6 @@ export function Session() {
     if (part.sessionID !== route.sessionID) return
     if (part.state.status !== "completed") return
     if (part.id === lastSwitch) return
-
-    // kilocode_change - plan_exit no longer switches agent; PlanFollowup handles it
     if (part.tool === "plan_enter") {
       local.agent.set("plan")
       lastSwitch = part.id
@@ -232,7 +230,7 @@ export function Session() {
 
   createEffect(() => {
     const title = Locale.truncate(session()?.title ?? "", 50)
-    // kilocode_change start
+
     return exit.message.set(
       [
         ``,
@@ -241,10 +239,8 @@ export function Session() {
         `  ██ ▀█▄ ██ ██████ ▀████▀  `,
       ].join("\n"),
     )
-    // kilocode_change end
-  })
 
-  // kilocode_change start - double ctrl+c to exit for child sessions
+  })
   const [exitPress, setExitPress] = createSignal(0)
   useKeyboard((evt) => {
     if (!session()?.parentID) return
@@ -259,8 +255,6 @@ export function Session() {
       exit()
     }
   })
-  // kilocode_change end
-
   // Helper: Find next visible message boundary in direction
   const findNextVisibleMessage = (direction: "next" | "prev"): string | null => {
     const children = scroll.getChildren()
@@ -1398,9 +1392,9 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
 function TextPart(props: { last: boolean; part: TextPart; message: AssistantMessage }) {
   const ctx = use()
   const { theme, syntax } = useTheme()
-  // kilocode_change start - format markdown tables with fixed-width columns
+
   const content = createMemo(() => formatMarkdownTables(props.part.text.trim()))
-  // kilocode_change end
+
   return (
     <Show when={props.part.text.trim()}>
       <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>

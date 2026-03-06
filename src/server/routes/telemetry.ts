@@ -1,4 +1,4 @@
-// kilocode_change - new file
+
 import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"

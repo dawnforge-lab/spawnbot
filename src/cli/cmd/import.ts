@@ -66,8 +66,6 @@ export function transformShareData(shareData: ShareData[]): {
     })),
   }
 }
-
-// kilocode_change start
 export function ingestBootstrapWarning(sessionId: string, error: unknown) {
   const details = error instanceof Error ? error.message : String(error)
   return `Warning: imported session ${sessionId} locally, but ingest bootstrap failed: ${details}`
@@ -103,8 +101,6 @@ export async function bootstrapImportedSessionIngest(
       warn(ingestBootstrapWarning(sessionId, error))
     })
 }
-// kilocode_change end
-
 export const ImportCommand = cmd({
   command: "import <file>",
   describe: "import session data from JSON file or URL",
@@ -205,11 +201,7 @@ export const ImportCommand = cmd({
           )
         }
       }
-
-      // kilocode_change start
       await bootstrapImportedSessionIngest(exportData.info.id)
-      // kilocode_change end
-
       process.stdout.write(`Imported session: ${exportData.info.id}`)
       process.stdout.write(EOL)
     })

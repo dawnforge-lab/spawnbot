@@ -4,7 +4,7 @@ import path from "path"
 import os from "os"
 import { Filesystem } from "../util/filesystem"
 
-const app = "spawnbot" // kilocode_change
+const app = "spawnbot"
 
 const data = path.join(xdgData!, app)
 const cache = path.join(xdgCache!, app)
@@ -15,7 +15,7 @@ export namespace Global {
   export const Path = {
     // Allow override via KILO_TEST_HOME for test isolation
     get home() {
-      return process.env.KILO_TEST_HOME || os.homedir() // kilocode_change
+      return process.env.KILO_TEST_HOME || os.homedir()
     },
     data,
     bin: path.join(data, "bin"),

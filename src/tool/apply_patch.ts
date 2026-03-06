@@ -13,7 +13,7 @@ import { LSP } from "../lsp"
 import { Filesystem } from "../util/filesystem"
 import DESCRIPTION from "./apply_patch.txt"
 import { File } from "../file"
-import { filterDiagnostics } from "./diagnostics" // kilocode_change
+import { filterDiagnostics } from "./diagnostics"
 
 const PatchParams = z.object({
   patchText: z.string().describe("The full patch text that describes all changes to be made"),
@@ -268,19 +268,15 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
         output += `\n\nLSP errors detected in ${path.relative(Instance.worktree, target).replaceAll("\\", "/")}, please fix:\n<diagnostics file="${target}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
       }
     }
-
-    // kilocode_change start
     const changedPaths = fileChanges
       .filter((c) => c.type !== "delete")
       .map((c) => Filesystem.normalizePath(c.movePath ?? c.filePath))
-    // kilocode_change end
-
     return {
       title: output,
       metadata: {
         diff: totalDiff,
         files,
-        diagnostics: filterDiagnostics(diagnostics, changedPaths), // kilocode_change
+        diagnostics: filterDiagnostics(diagnostics, changedPaths),
       },
       output,
     }

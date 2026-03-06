@@ -18,41 +18,19 @@ import { Filesystem } from "./util/filesystem"
 import { DebugCommand } from "./cli/cmd/debug"
 import { StatsCommand } from "./cli/cmd/stats"
 import { McpCommand } from "./cli/cmd/mcp"
-// import { GithubCommand } from "./cli/cmd/github" // kilocode_change
 import { ExportCommand } from "./cli/cmd/export"
 import { ImportCommand } from "./cli/cmd/import"
 import { AttachCommand } from "./cli/cmd/tui/attach"
 import { TuiThreadCommand } from "./cli/cmd/tui/thread"
 import { AcpCommand } from "./cli/cmd/acp"
 import { EOL } from "os"
-// import { WebCommand } from "./cli/cmd/web" // kilocode_change (Disabled unsupported opencode web UI)
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { SetupCommand } from "./cli/cmd/setup"
 import { DoctorCommand } from "./cli/cmd/doctor"
 import { DaemonCommand } from "./cli/cmd/daemon"
 import { ResetSessionCommand } from "./cli/cmd/reset-session"
-// kilocode_change start - Import telemetry, instance disposal, and legacy migration
-import { Telemetry } from "@/stubs/telemetry"
-import { Instance } from "./project/instance" // kilocode_change
-import { migrateLegacyKiloAuth, ENV_FEATURE, ENV_VERSION } from "@/stubs/gateway"
-
-// kilocode_change - set feature for tracking. 'serve' is spawned by other services
-// (extension, cloud) which set their own KILOCODE_FEATURE env var. Direct CLI use
-// (any command other than 'serve') is tagged as 'cli'. If 'serve' is spawned without
-// the env var, it gets 'unknown' so the misconfiguration is visible in data.
-if (!process.env[ENV_FEATURE]) {
-  const isServe = process.argv.includes("serve")
-  process.env[ENV_FEATURE] = isServe ? "unknown" : "cli"
-}
-
-// kilocode_change - set version so kilo-gateway can include it in the editor name header
-if (!process.env[ENV_VERSION]) {
-  process.env[ENV_VERSION] = Installation.VERSION
-}
-import { Config } from "./config/config"
-import { Auth } from "./auth"
-// kilocode_change end
+import { Instance } from "./project/instance"
 import { DbCommand } from "./cli/cmd/db"
 import path from "path"
 import { Global } from "./global"
@@ -73,7 +51,7 @@ process.on("uncaughtException", (e) => {
 
 let cli = yargs(hideBin(process.argv))
   .parserConfiguration({ "populate--": true })
-  .scriptName("spawnbot") // kilocode_change
+  .scriptName("spawnbot")
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")
@@ -106,30 +84,6 @@ let cli = yargs(hideBin(process.argv))
       version: Installation.VERSION,
       args: process.argv.slice(2),
     })
-
-    // kilocode_change start - Initialize telemetry
-    const globalCfg = await Config.getGlobal()
-    await Telemetry.init({
-      dataPath: Global.Path.data,
-      version: Installation.VERSION,
-      enabled: globalCfg.experimental?.openTelemetry !== false,
-    })
-
-    // Migrate legacy Kilo CLI auth if needed
-    await migrateLegacyKiloAuth(
-      async () => (await Auth.get("kilo")) !== undefined,
-      async (auth) => Auth.set("kilo", auth),
-    )
-
-    const kiloAuth = await Auth.get("kilo")
-    if (kiloAuth) {
-      const token = kiloAuth.type === "oauth" ? kiloAuth.access : kiloAuth.key
-      const accountId = kiloAuth.type === "oauth" ? kiloAuth.accountId : undefined
-      await Telemetry.updateIdentity(token, accountId)
-    }
-
-    Telemetry.trackCliStart()
-    // kilocode_change end
 
     const marker = path.join(Global.Path.data, "kilo.db")
     if (!(await Filesystem.exists(marker))) {
@@ -182,12 +136,10 @@ let cli = yargs(hideBin(process.argv))
   .command(UpgradeCommand)
   .command(UninstallCommand)
   .command(ServeCommand)
-  // .command(WebCommand) // kilocode_change (Disabled unsupported opencode web UI)
   .command(ModelsCommand)
   .command(StatsCommand)
   .command(ExportCommand)
   .command(ImportCommand)
-  // .command(GithubCommand) // kilocode_change (Disabled until backend is ready)
   .command(PrCommand)
   .command(SessionCommand)
   .command(DbCommand)
@@ -255,13 +207,7 @@ try {
   }
   process.exitCode = 1
 } finally {
-  // kilocode_change start - Track CLI exit and shutdown telemetry
-  const exitCode = typeof process.exitCode === "number" ? process.exitCode : undefined
-  Telemetry.trackCliExit(exitCode)
-  await Telemetry.shutdown()
-  // kilocode_change end
-
-  await Instance.disposeAll() // kilocode_change - safety net disposal (no-op if already disposed)
+  await Instance.disposeAll()
 
   // Some subprocesses don't react properly to SIGTERM and similar signals.
   // Most notably, some docker-container-based MCP servers don't handle such signals unless

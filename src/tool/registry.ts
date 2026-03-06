@@ -104,7 +104,7 @@ export namespace ToolRegistry {
 
     return [
       InvalidTool,
-      ...(["app", "cli", "desktop", "vscode"].includes(Flag.KILO_CLIENT) && question ? [QuestionTool] : []), // kilocode_change
+      ...(["app", "cli", "desktop", "vscode"].includes(Flag.KILO_CLIENT) && question ? [QuestionTool] : []),
       BashTool,
       ReadTool,
       GlobTool,
@@ -150,12 +150,10 @@ export namespace ToolRegistry {
       tools
         .filter((t) => {
           // Enable websearch/codesearch for zen/kilo users OR via enable flag
-          // kilocode_change start
+
           if (t.id === "codesearch" || t.id === "websearch") {
             return model.providerID === "opencode" || model.providerID === "kilo" || Flag.KILO_ENABLE_EXA
           }
-          // kilocode_change end
-
           // use apply tool in same format as codex
           const usePatch =
             model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")

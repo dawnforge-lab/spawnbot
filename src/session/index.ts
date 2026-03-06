@@ -207,7 +207,7 @@ export namespace Session {
         error: MessageV2.Assistant.shape.error,
       }),
     ),
-    // kilocode_change start
+
     TurnOpen: BusEvent.define(
       "session.turn.open",
       z.object({
@@ -221,10 +221,8 @@ export namespace Session {
         reason: z.enum(["completed", "error", "interrupted"]),
       }),
     ),
-    // kilocode_change end
-  }
 
-  // kilocode_change
+  }
   export type CloseReason = z.infer<typeof Event.TurnClose.properties>["reason"]
 
   export const create = fn(
@@ -233,7 +231,7 @@ export namespace Session {
         parentID: Identifier.schema("session").optional(),
         title: z.string().optional(),
         permission: Info.shape.permission,
-        platform: z.string().optional(), // kilocode_change - per-session platform override for telemetry attribution
+        platform: z.string().optional(),
       })
       .optional(),
     async (input) => {
@@ -243,23 +241,19 @@ export namespace Session {
         title: input?.title,
         permission: input?.permission,
       })
-      // kilocode_change start - store platform override for session ingest
+
       if (input?.platform) {
         platformOverrides.set(session.id, input.platform)
       }
-      // kilocode_change end
+
       return session
     },
   )
-
-  // kilocode_change start - per-session platform overrides for telemetry attribution
   const platformOverrides = new Map<string, string>()
 
   export function getPlatformOverride(sessionId: string): string | undefined {
     return platformOverrides.get(sessionId)
   }
-  // kilocode_change end
-
   export const fork = fn(
     z.object({
       sessionID: Identifier.schema("session"),
@@ -377,7 +371,7 @@ export namespace Session {
       throw new Error("Sharing is disabled in configuration")
     }
     const { KiloSessions } = await import("@/kilo-sessions/kilo-sessions")
-    const share = await KiloSessions.share(id) // kilocode_change
+    const share = await KiloSessions.share(id)
     Database.use((db) => {
       const row = db.update(SessionTable).set({ share_url: share.url }).where(eq(SessionTable.id, id)).returning().get()
       if (!row) throw new NotFoundError({ message: `Session not found: ${id}` })
@@ -390,7 +384,7 @@ export namespace Session {
   export const unshare = fn(Identifier.schema("session"), async (id) => {
     // Use ShareNext to remove the share (same as share function uses ShareNext to create)
     const { KiloSessions } = await import("@/kilo-sessions/kilo-sessions")
-    await KiloSessions.unshare(id) // kilocode_change
+    await KiloSessions.unshare(id)
     Database.use((db) => {
       const row = db.update(SessionTable).set({ share_url: null }).where(eq(SessionTable.id, id)).returning().get()
       if (!row) throw new NotFoundError({ message: `Session not found: ${id}` })
@@ -686,11 +680,11 @@ export namespace Session {
         await remove(child.id)
       }
       const { KiloSessions } = await import("@/kilo-sessions/kilo-sessions")
-      await KiloSessions.remove(sessionID).catch(() => {}) // kilocode_change
-      platformOverrides.delete(sessionID) // kilocode_change - clean up platform override
-      // kilocode_change start - cancel running processor before deleting to avoid FK constraint errors
+      await KiloSessions.remove(sessionID).catch(() => {})
+      platformOverrides.delete(sessionID)
+
       SessionPrompt.cancel(sessionID)
-      // kilocode_change end
+
       // CASCADE delete handles messages and parts automatically
       Database.use((db) => {
         db.delete(SessionTable).where(eq(SessionTable.id, sessionID)).run()
@@ -708,7 +702,7 @@ export namespace Session {
   export const updateMessage = fn(MessageV2.Info, async (msg) => {
     const time_created = msg.time.created
     const { id, sessionID, ...data } = msg
-    // kilocode_change start - ignore FK errors when session was deleted while processor was still running
+
     try {
       Database.use((db) => {
         db.insert(MessageTable)
@@ -733,7 +727,7 @@ export namespace Session {
         throw e
       }
     }
-    // kilocode_change end
+
     return msg
   })
 
@@ -787,7 +781,7 @@ export namespace Session {
   export const updatePart = fn(UpdatePartInput, async (part) => {
     const { id, messageID, sessionID, ...data } = part
     const time = Date.now()
-    // kilocode_change start - ignore FK errors when session was deleted while processor was still running
+
     try {
       Database.use((db) => {
         db.insert(PartTable)
@@ -813,7 +807,7 @@ export namespace Session {
         throw e
       }
     }
-    // kilocode_change end
+
     return part
   })
 
@@ -835,7 +829,7 @@ export namespace Session {
       model: z.custom<Provider.Model>(),
       usage: z.custom<LanguageModelV2Usage>(),
       metadata: z.custom<ProviderMetadata>().optional(),
-      provider: z.custom<Provider.Info>().optional(), // kilocode_change
+      provider: z.custom<Provider.Info>().optional(),
     }),
     (input) => {
       const safe = (value: number) => {
@@ -888,8 +882,6 @@ export namespace Session {
           read: cacheReadInputTokens,
         },
       }
-
-      // kilocode_change start - Use provider-reported cost when available for OpenRouter/Kilo
       // The OpenRouter AI SDK provider exposes cost at providerMetadata.openrouter.usage
       // Reference: https://openrouter.ai/docs/use-cases/usage-accounting
       // Note: The AI SDK uses camelCase (upstreamInferenceCost), not snake_case
@@ -918,8 +910,6 @@ export namespace Session {
           }
         }
       }
-      // kilocode_change end
-
       const costInfo =
         input.model.cost?.experimentalOver200K && tokens.input + tokens.cache.read > 200_000
           ? input.model.cost.experimentalOver200K

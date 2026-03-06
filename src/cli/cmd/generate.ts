@@ -11,7 +11,7 @@ export const GenerateCommand = {
         if (!operation?.operationId) continue
         // @ts-expect-error
         operation["x-codeSamples"] = [
-          // kilocode_change start
+
           {
             lang: "js",
             source: [
@@ -23,7 +23,7 @@ export const GenerateCommand = {
               `})`,
             ].join("\n"),
           },
-          // kilocode_change end,
+
         ]
       }
     }

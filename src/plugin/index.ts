@@ -12,22 +12,16 @@ import { Session } from "../session"
 import { NamedError } from "@/util/error"
 import { CopilotAuthPlugin } from "./copilot"
 import { gitlabAuthPlugin as GitlabAuthPlugin } from "@gitlab/opencode-gitlab-auth"
-
-import { KiloAuthPlugin } from "@/stubs/gateway" // kilocode_change
-
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
   const BUILTIN = ["opencode-anthropic-auth@0.0.13"]
 
-  // Built-in plugins that are directly imported (not installed from npm)
-  // kilocode_change start
   const INTERNAL_PLUGINS: PluginInstance[] = [
-    KiloAuthPlugin as unknown as PluginInstance,
     CodexAuthPlugin,
     CopilotAuthPlugin,
     GitlabAuthPlugin as unknown as PluginInstance,
-  ] // kilocode_change end
+  ]
 
   const state = Instance.state(async () => {
     const client = createKiloClient({
