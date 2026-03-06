@@ -172,29 +172,14 @@ export namespace Memory {
     })
   }
 
-  /** Apply importance decay to all memories. Called periodically. */
-  export function decay(factor: number = 0.995, minImportance: number = 0.01) {
+  /** Apply importance decay to all memories. Importance floors at minImportance — memories are never deleted by decay. */
+  export function decay(factor: number = 0.995, minImportance: number = 0.05) {
     return Database.use((db) => {
-      // Decay importance
       db.update(MemoryTable)
         .set({
-          importance: sql`importance * ${factor}`,
+          importance: sql`max(importance * ${factor}, ${minImportance})`,
         })
         .run()
-
-      // Delete memories below threshold
-      const deleted = db.delete(MemoryTable)
-        .where(sql`importance < ${minImportance}`)
-        .run()
-
-      if (deleted.changes > 0) {
-        // Clean up FTS for deleted memories
-        const raw = (db as any).$client as import("bun:sqlite").Database
-        raw.run(`DELETE FROM ${FTS_TABLE} WHERE id NOT IN (SELECT id FROM memory)`)
-        log.info("decay cleaned up memories", { deleted: deleted.changes })
-      }
-
-      return deleted.changes
     })
   }
 

@@ -8,6 +8,9 @@ import { IdleLoop } from "@/autonomy/idle"
 import { startDecay, stopDecay } from "@/autonomy/decay"
 import { Tunnel } from "@/tunnel"
 import { deliverResponse } from "@/input/response"
+import { flushFromCompaction } from "@/memory/flush"
+import { SessionCompaction } from "@/session/compaction"
+import { Bus } from "@/bus"
 import { loadEnv, loadCrons, wirePollerState, saveSessionID, loadSessionID, clearSessionID } from "./config"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
@@ -123,6 +126,13 @@ export namespace Daemon {
     if (crons.length > 0) {
       CronScheduler.start(crons)
     }
+
+    // Flush compaction summaries to long-term memory
+    Bus.subscribe(SessionCompaction.Event.Compacted, async (event) => {
+      await flushFromCompaction(event.properties.sessionID).catch((err) => {
+        log.error("memory flush failed", { error: err })
+      })
+    })
 
     // Start autonomy
     IdleLoop.start()
