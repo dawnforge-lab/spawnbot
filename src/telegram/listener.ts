@@ -2,6 +2,9 @@ import { Bot, webhookCallback, type Context } from "grammy"
 import { InputQueue } from "@/input/queue"
 import { Log } from "@/util/log"
 import { ulid } from "ulid"
+import fs from "fs"
+import path from "path"
+import { Global } from "@/global"
 
 const log = Log.create({ service: "telegram.listener" })
 
@@ -68,6 +71,34 @@ export namespace TelegramListener {
     return webhookCallback(bot, "hono")
   }
 
+  /** Download a file from Telegram and save it to the inbox directory. */
+  async function downloadFile(fileId: string, filename: string): Promise<string | undefined> {
+    if (!bot) return undefined
+    try {
+      const file = await bot.api.getFile(fileId)
+      if (!file.file_path) return undefined
+
+      const url = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`
+      const res = await fetch(url)
+      if (!res.ok) return undefined
+
+      const inboxDir = path.join(Global.Path.data, "inbox")
+      fs.mkdirSync(inboxDir, { recursive: true })
+
+      // Use timestamp prefix to avoid collisions
+      const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const destPath = path.join(inboxDir, `${Date.now()}-${safeName}`)
+      const buffer = await res.arrayBuffer()
+      fs.writeFileSync(destPath, Buffer.from(buffer))
+
+      log.info("downloaded telegram file", { fileId, path: destPath, size: buffer.byteLength })
+      return destPath
+    } catch (err) {
+      log.error("failed to download telegram file", { fileId, error: err })
+      return undefined
+    }
+  }
+
   function registerHandlers() {
     if (!bot) return
 
@@ -101,18 +132,29 @@ export namespace TelegramListener {
     bot.on("message:photo", async (ctx) => {
       if (!isAllowed(ctx)) return
 
-      const caption = ctx.message.caption ?? "[photo received]"
+      // Download the highest-resolution photo
+      const photos = ctx.message.photo
+      const largest = photos[photos.length - 1]
+      const filePath = await downloadFile(largest.file_id, `photo_${largest.file_id}.jpg`)
+
+      const caption = ctx.message.caption ?? ""
+      const content = filePath
+        ? `${caption ? caption + "\n\n" : ""}[Photo saved to ${filePath} — read and analyze this image]`
+        : caption || "[photo received but download failed]"
+
       InputQueue.enqueue({
         id: ulid(),
         source: "telegram",
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
-        content: caption,
+        content,
         priority: "normal",
         metadata: {
           chatId: ctx.chat.id,
           messageId: ctx.message.message_id,
           userId: ctx.from?.id,
-          hasPhoto: true,
+          filePath,
+          fileType: "photo",
+          mime: "image/jpeg",
         },
         timestamp: Date.now(),
       })
@@ -121,19 +163,110 @@ export namespace TelegramListener {
     bot.on("message:document", async (ctx) => {
       if (!isAllowed(ctx)) return
 
-      const caption = ctx.message.caption ?? `[document: ${ctx.message.document.file_name ?? "unknown"}]`
+      const doc = ctx.message.document
+      const filename = doc.file_name ?? "document"
+      const filePath = await downloadFile(doc.file_id, filename)
+
+      const caption = ctx.message.caption ?? ""
+      const content = filePath
+        ? `${caption ? caption + "\n\n" : ""}[File "${filename}" saved to ${filePath} — read and analyze this file]`
+        : `${caption ? caption + "\n\n" : ""}[Document "${filename}" received but download failed]`
+
       InputQueue.enqueue({
         id: ulid(),
         source: "telegram",
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
-        content: caption,
+        content,
         priority: "normal",
         metadata: {
           chatId: ctx.chat.id,
           messageId: ctx.message.message_id,
           userId: ctx.from?.id,
-          hasDocument: true,
-          fileName: ctx.message.document.file_name,
+          filePath,
+          fileType: "document",
+          fileName: filename,
+          mime: doc.mime_type,
+        },
+        timestamp: Date.now(),
+      })
+    })
+
+    bot.on("message:voice", async (ctx) => {
+      if (!isAllowed(ctx)) return
+
+      const voice = ctx.message.voice
+      const filePath = await downloadFile(voice.file_id, `voice_${voice.file_id}.ogg`)
+
+      const content = filePath
+        ? `[Voice message (${voice.duration}s) saved to ${filePath} — analyze this audio file]`
+        : "[Voice message received but download failed]"
+
+      InputQueue.enqueue({
+        id: ulid(),
+        source: "telegram",
+        sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
+        content,
+        priority: "normal",
+        metadata: {
+          chatId: ctx.chat.id,
+          messageId: ctx.message.message_id,
+          userId: ctx.from?.id,
+          filePath,
+          fileType: "voice",
+          mime: voice.mime_type ?? "audio/ogg",
+          duration: voice.duration,
+        },
+        timestamp: Date.now(),
+      })
+    })
+
+    bot.on("message:video", async (ctx) => {
+      if (!isAllowed(ctx)) return
+
+      const video = ctx.message.video
+      const filename = video.file_name ?? `video_${video.file_id}.mp4`
+      const filePath = await downloadFile(video.file_id, filename)
+
+      const caption = ctx.message.caption ?? ""
+      const content = filePath
+        ? `${caption ? caption + "\n\n" : ""}[Video "${filename}" (${video.duration}s) saved to ${filePath}]`
+        : `${caption ? caption + "\n\n" : ""}[Video received but download failed]`
+
+      InputQueue.enqueue({
+        id: ulid(),
+        source: "telegram",
+        sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
+        content,
+        priority: "normal",
+        metadata: {
+          chatId: ctx.chat.id,
+          messageId: ctx.message.message_id,
+          userId: ctx.from?.id,
+          filePath,
+          fileType: "video",
+          fileName: filename,
+          mime: video.mime_type,
+          duration: video.duration,
+        },
+        timestamp: Date.now(),
+      })
+    })
+
+    bot.on("message:sticker", async (ctx) => {
+      if (!isAllowed(ctx)) return
+
+      const sticker = ctx.message.sticker
+      InputQueue.enqueue({
+        id: ulid(),
+        source: "telegram",
+        sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
+        content: `[Sticker: ${sticker.emoji ?? ""}${sticker.set_name ? ` from "${sticker.set_name}"` : ""}]`,
+        priority: "low",
+        metadata: {
+          chatId: ctx.chat.id,
+          messageId: ctx.message.message_id,
+          userId: ctx.from?.id,
+          fileType: "sticker",
         },
         timestamp: Date.now(),
       })

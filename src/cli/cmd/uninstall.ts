@@ -129,13 +129,13 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string> = {
-      npm: "npm uninstall -g @kilocode/cli",
-      pnpm: "pnpm uninstall -g @kilocode/cli",
-      bun: "bun remove -g @kilocode/cli",
-      yarn: "yarn global remove @kilocode/cli",
-      brew: "brew uninstall opencode",
-      choco: "choco uninstall kilo",
-      scoop: "scoop uninstall kilo",
+      npm: "npm uninstall -g spawnbot",
+      pnpm: "pnpm uninstall -g spawnbot",
+      bun: "bun remove -g spawnbot",
+      yarn: "yarn global remove spawnbot",
+      brew: "brew uninstall spawnbot",
+      choco: "choco uninstall spawnbot",
+      scoop: "scoop uninstall spawnbot",
     }
     prompts.log.info(`  ✓ Package: ${cmds[method] || method}`)
   }

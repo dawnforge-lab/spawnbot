@@ -1,3 +1,4 @@
+import path from "path"
 import { Log } from "@/util/log"
 import { InputRouter } from "@/input/router"
 import { InputQueue } from "@/input/queue"
@@ -93,12 +94,29 @@ export namespace Daemon {
         if (skill) system = skill.content
       }
 
+      // Build parts: text + optional file attachment for multimodal analysis
+      const parts: Array<{ type: "text"; text: string } | { type: "file"; mime: string; url: string; filename?: string }> = [
+        { type: "text", text: input },
+      ]
+
+      // If the event has a downloaded file (photo, document, etc.), attach it
+      const filePath = event.metadata?.filePath as string | undefined
+      const mime = event.metadata?.mime as string | undefined
+      if (filePath && mime) {
+        parts.push({
+          type: "file",
+          mime,
+          url: `file://${filePath}`,
+          filename: (event.metadata?.fileName as string) ?? path.basename(filePath),
+        })
+      }
+
       const messageID = Identifier.ascending("message")
       const result = await SessionPrompt.prompt({
         sessionID: sessionID!,
         messageID,
         system,
-        parts: [{ type: "text", text: input }],
+        parts,
       })
 
       // Extract text from the assistant response
