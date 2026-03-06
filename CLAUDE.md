@@ -2,146 +2,81 @@
 
 ## What This Is
 
-spawnbot is an autonomous AI agent framework built on **Kimi CLI** (Apache 2.0). It's a Node.js daemon that spawns Kimi CLI via its Wire protocol (bidirectional JSON-RPC over stdin/stdout) and provides the integration layer for external services, memory, and autonomous operation.
+spawnbot is an autonomous AI agent framework built by forking **Kilo Code CLI** (MIT license). It's a Bun/TypeScript daemon that provides a complete agentic CLI with personality (SOUL.yaml), long-term memory, Telegram integration, and autonomous operation.
 
-**The core insight:** We don't build a reasoning engine. Kimi CLI IS the reasoning engine. We build the thin daemon that feeds it inputs, provides tools via MCP servers, and manages the autonomous loop.
+**The core insight:** We don't build a reasoning engine from scratch. Kilo Code CLI IS the reasoning engine (session management, tools, MCP, 20+ LLM providers). We strip the branding, add personality, memory, Telegram, and autonomy on top.
 
 ## Architecture Overview
 
 ```
-Agent Daemon (Node.js)
-  ├── Core: Telegram listener, cron scheduler, autonomy loop
-  ├── Generic Poller Manager (loads integrations.yaml, runs add-on pollers)
-  ├── Input Queue (priority-based: critical > high > normal > low)
-  └── Wire Protocol Client (JSON-RPC 2.0 over stdin/stdout)
-        │
-        └── Kimi CLI (--wire --agent-file agent.yaml)
-              ├── System Prompt: rendered from SOUL.yaml
-              ├── Built-in tools: bash, read, write, glob, grep, fetch
-              └── MCP Servers (stdio):
-                    ├── Telegram (core) — tg_send, tg_photo, tg_react
-                    ├── Agent Tools (core) — memory_store, memory_recall, task_search
-                    └── [Add-ons from integrations/] — x_post, x_reply, etc.
+spawnbot CLI (Bun/TypeScript, forked from Kilo Code)
+  |
+  |- Inherited from Kilo Code:
+  |    |- Session management (LLM loop, compaction, history)
+  |    |- Tools: bash, read, write, edit, glob, grep, web fetch, web search, LSP
+  |    |- MCP client (stdio + remote + OAuth)
+  |    |- 20+ LLM providers via Vercel AI SDK
+  |    |- TUI interface
+  |    |- SQLite + Drizzle ORM
+  |    |- Agent/subagent architecture
+  |    |- Permission system (--auto mode)
+  |    |- Skill system, plan mode
+  |
+  |- Spawnbot additions:
+       |- SOUL.yaml personality system (replaces soul.txt)
+       |- Memory: SQLite FTS5 + importance decay + context director
+       |- Telegram: grammY listener + MCP server (tg_send, tg_photo, tg_react)
+       |- Input queue: priority-based (critical > high > normal > low)
+       |- Autonomy loop: idle escalation (30min -> 15min -> WARNING)
+       |- Cron scheduler: croner-based scheduled prompts
+       |- Poller manager: pluggable integration polling
+       |- Onboarding: LLM co-creation wizard for SOUL.yaml
+       |- ngrok tunnel: optional webhook mode for Telegram
 ```
 
 ## Key Principles
 
-1. **Telegram is core, everything else is an add-on.** Telegram is the primary control/notification channel (built-in). X, Reddit, etc. are pluggable integrations.
-2. **Each integration = MCP server + poller.** The MCP server provides action tools. The poller provides event ingestion.
-3. **Generic poller system.** `integrations.yaml` defines which add-ons are active and their poll intervals.
-4. **Wire protocol, not ACP.** Wire is lower-level, designed for custom integrations.
-5. **Auto-approve everything.** The agent runs with `--yolo` flag. Stop phrase (configurable in SOUL.yaml) is the safety gate.
-6. **SQLite + YAML hybrid.** YAML for identity/config (human-readable). SQLite for operational state (tasks, memories, conversations).
+1. **Telegram is core, everything else is an add-on.** Telegram is the primary control channel. X, Reddit, etc. are pluggable pollers.
+2. **SOUL.yaml defines identity.** Personality, voice, safety, goals — all in one YAML file, co-created with LLM during setup.
+3. **No fallbacks.** Transparent errors that can be fixed, not hidden.
+4. **Auto-approve everything.** The agent runs with `--auto` flag. Stop phrase (in SOUL.yaml) is the safety gate.
+5. **SQLite + YAML hybrid.** YAML for identity/config. SQLite for operational state.
 
-## Directory Structure
+## Project Status
 
-```
-~/.spawnbot/                     # Framework (installed once)
-├── bin/                         # CLI entry points
-│   ├── spawnbot.js              # Main CLI: start, stop, status, setup, config
-│   ├── mcp-telegram.js          # Telegram MCP server (core)
-│   └── mcp-core.js              # Agent Tools MCP server (core)
-├── lib/
-│   ├── daemon/                  # Daemon lifecycle, health, state
-│   ├── wire/                    # Wire protocol client (JSON-RPC over stdio)
-│   ├── input/                   # Input queue, router, pollers, cron, autonomy
-│   ├── mcp/                     # MCP server framework + core servers
-│   │   ├── base-server.js       # MCP base class
-│   │   ├── telegram/            # Core: tg_send, tg_photo, tg_react, etc.
-│   │   └── core/                # Core: memory, tasks, state, events
-│   ├── flow/                    # Flow engine (parser, runner, loader)
-│   ├── http/                    # HTTP server (webhooks, API)
-│   ├── db/                      # SQLite + Drizzle ORM
-│   ├── personality/             # SOUL.yaml loader → Personality class
-│   ├── config/                  # Config loader + validator
-│   ├── persona/                 # System prompt builder, MCP config generator
-│   └── setup/                   # Interactive setup wizard
-├── integrations/                # Pluggable add-ons
-│   └── x-twitter/               # X/Twitter integration
-└── drizzle/                     # Generated DB migrations
+**Phase 1: Fork & Strip** — In progress. See `docs/plan-v3-kilocode-fork.md` for full plan.
 
-~/.spawnbot/agent/               # Agent instance (default location)
-├── config/                      # YAML configuration (generated by spawnbot setup)
-│   ├── SOUL.yaml                # Agent identity and personality
-│   ├── CRONS.yaml               # Scheduled jobs
-│   ├── integrations.yaml        # Active integrations
-│   └── agent/                   # Kimi CLI agent config
-│       ├── agent.yaml           # Agent definition
-│       └── system.md            # System prompt template
-├── skills/                      # Flow skills and prompt modules
-├── data/                        # Runtime data (gitignored)
-│   ├── agent.sqlite             # SQLite database
-│   ├── mcp.json                 # Generated MCP config
-│   ├── rendered-system.md       # Compiled system prompt
-│   └── logs/                    # Log files
-└── .env                         # API credentials (Telegram, integrations)
+## Key Files
+
+- `docs/plan-v3-kilocode-fork.md` — Master plan (7 phases)
+- `docs/architecture.md` — v2 architecture reference (being superseded by fork plan)
+- `docs/delivery-plan.md` — v2 delivery plan reference (being superseded by fork plan)
+- `docs/lessons-learned.md` — What worked/failed across all codebases
+- `docs/research/` — Analysis of OpenClaw, thepopebot, picoclaw, spawnbot v1
+
+## Tech Stack
+
+| Concern | Choice |
+|---------|--------|
+| Runtime | Bun |
+| Language | TypeScript |
+| LLM | Vercel AI SDK (`ai`) + 20+ provider packages |
+| Telegram | grammY |
+| Database | SQLite via Drizzle ORM |
+| MCP | @modelcontextprotocol/sdk |
+| Config | YAML (config.yaml + SOUL.yaml) + .env |
+| Cron | croner |
+| HTTP | Hono |
+| Tunnel | ngrok |
+| TUI | @opentui/solid (inherited from Kilo Code) |
+
+## Development
+
+```bash
+bun install          # Install dependencies
+bun run dev          # Start in dev mode
+bun run build        # Build for production
 ```
 
-## Config Files
-
-All config files are generated by `spawnbot setup` and gitignored. They are agent-specific, not framework defaults.
-
-- `config/SOUL.yaml` — Agent identity, personality traits, voice, safety rules
-- `config/CRONS.yaml` — Scheduled jobs (cron expressions + prompts)
-- `config/integrations.yaml` — Integration toggle + poll intervals
-- `config/GOALS.yaml` — Optional targets and metrics
-- `config/PLAYBOOK.yaml` — Optional action templates
-- `config/agent/agent.yaml` — Kimi CLI agent definition
-- `config/agent/system.md` — System prompt template
-- `.env` — API credentials (Telegram, integrations)
-
-## Database
-
-SQLite via Drizzle ORM at `data/agent.sqlite`. Auto-initialized on daemon start.
-
-| Table | Purpose |
-|-------|---------|
-| memories | Long-term memory (content, category, importance, access tracking) |
-| conversations | Interaction log (source, input, output, tools used) |
-| tasks | Task assignments (status tracking, deadlines, proof) |
-| revenue | Income records |
-| state | Key-value store (daemon state, poller state) |
-| events | Audit log of all events |
-
-Schema convention: camelCase JS properties mapped to snake_case SQL columns.
-
-## Integration Add-On Contract
-
-Each integration in `integrations/` must provide:
-
-**poller.js** — Event ingestion:
-```js
-export default {
-  name: 'x-twitter',
-  defaultInterval: 60,
-  async poll(lastState) {
-    return { events: [{ type, content, sender, metadata }], newState: {} };
-  }
-};
-```
-
-**mcp-server.js** — Action tools (stdio MCP server)
-
-Configured in `config/integrations.yaml`.
-
-## Kimi CLI Wire Protocol
-
-Communication with Kimi CLI uses Wire protocol v1.3 (JSON-RPC 2.0 over stdin/stdout):
-
-- `initialize` — Register external tools, negotiate protocol version
-- `prompt(input)` — Send user input, returns turn result
-- `steer(input)` — Inject message into active turn
-- `cancel()` — Abort current turn
-
-Events from Kimi CLI: TurnBegin, TurnEnd, ContentPart, ToolCall, ToolResult, ApprovalRequest, QuestionRequest.
-
-## LLM Provider Configuration
-
-Kimi CLI handles provider management. Supported providers:
-- **Kimi** (Moonshot AI)
-- **Anthropic** (Claude)
-- **OpenAI / DeepSeek / Ollama** (any OpenAI-compatible API)
-- **Google Gemini**
-- **Vertex AI**
-
-Configured in `~/.kimi/config.toml` or via `kimi` interactive `/login` command.
+## CRITICAL: No fallbacks — transparent errors that can be fixed, not hidden
+## Update relevant serena memories after each commit

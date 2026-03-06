@@ -1,5 +1,0 @@
-2026-03-03T22:32:26.102Z] [INFO ] [WIRE] Spawning: kimi --wire --agent-file /home/eugen-dev/.spawnbot/agent/config/agent/agent.yaml --mcp-config-file /home/eugen-dev/.spawnbot/agent/data/mcp.json --yolo
-[2026-03-03T22:32:26.117Z] [ERROR] [DAEMON] Kimi CLI exited with code null
-
-The agent seems that it doesn't have knowledge of flow, is being prompted about it but there's no skill how to use flow?
-

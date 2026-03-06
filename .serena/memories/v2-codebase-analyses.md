@@ -1,43 +1,46 @@
-# v2 Codebase Analyses Summary
+# Codebase Analyses & Fork Decision
 
-## Decision: Fork OpenClaw into new repo
+## Decision History
+1. **spawnbot v1** — JS daemon wrapping Kimi CLI via Wire protocol. Hit prompt conflict, Wire abstraction issues.
+2. **OpenClaw fork** — Abandoned after 3 epics. Fork cost exceeded building from scratch.
+3. **spawnbot v2 plan** — Fresh TypeScript rewrite with Vercel AI SDK. Never started.
+4. **spawnbot v3 (current)** — Fork Kilo Code CLI. Best of both worlds: mature CLI tools + our additions on top.
 
-### OpenClaw (at /home/eugen-dev/Workflows/openclaw)
-- TypeScript, Pi SDK embedded (createAgentSession), grammY Telegram
-- 25+ hook plugin system via jiti, tool factories, channel/provider plugins
-- Hybrid memory search (BM25 + vector + sqlite-vec + temporal decay + MMR)
-- Web UI: Vite + Lit 3, WebSocket with device auth
-- Config: JSON5, AJV + Zod validation, hot-reload via chokidar
-- NO application DB (JSONL transcripts, sessions.json, memory.db only)
-- Heartbeat is a gimmick — reads HEARTBEAT.md, not directed prompting
-- Key files: src/gateway/server.impl.ts, src/agents/pi-embedded-runner/run/attempt.ts, src/plugins/loader.ts, src/memory/hybrid.ts
+## Why Kilo Code Fork
+- MIT license, TypeScript/Bun, 51k lines of battle-tested agentic code
+- 20+ LLM providers via Vercel AI SDK (already our planned stack)
+- Mature tools: bash (PTY), file ops, glob, grep (ripgrep), web fetch/search, LSP
+- First-class MCP support (stdio + remote + OAuth)
+- Session management with compaction
+- Agent/subagent architecture
+- TUI, headless mode, permission system
+- Internal Hono HTTP server + SDK client = daemon-ready architecture
+- Bun-specific APIs in only ~43 call sites (manageable if Node.js needed later)
 
-### thepopebot (at /home/eugen-dev/Workflows/thepopebot)
-- JavaScript/Next.js, LangGraph createReactAgent, SqliteSaver persistence
-- GitHub Actions MANDATORY for job execution (can't run locally)
-- Vercel AI SDK v5 streaming, Drizzle ORM
-- No plugin system, no memory beyond LangGraph checkpoints
-- Key innovation: ChannelAdapter base class, render_md() templates
+## Kilo-Specific Code to Strip
+- `@kilocode/kilo-telemetry` — PostHog telemetry
+- `@kilocode/kilo-gateway` — Auth gateway
+- `kilocode/` directory — branding, migrations, config migrators
+- Kilo OAuth flow (keep provider API key auth)
+- `// kilocode_change` comments mark all Kilo modifications from OpenCode base
 
-### spawnbot v1 Innovations to Keep
-1. Priority Input Queue (4 levels with blocking dequeue)
-2. Source-Attributed Router ([SOURCE from SENDER])
-3. Structured Cron Prompts (workspace:, flow:, prompt:)
-4. Autonomy Loop (idle escalation 30min→15min→warning)
-5. SQLite Memory FTS5 + importance decay
-6. Poller Manager (poll(lastState) → {events, newState})
-7. Flow Engine (Mermaid DSL)
-8. MCP Pre-flight Validation
+## Alternatives Considered
+| Tool | License | Why Not |
+|------|---------|---------|
+| Claude Code | All rights reserved | Not open source |
+| Goose (Block) | Apache-2.0 | Rust core, can't modify internals from TS |
+| Codex CLI | Apache-2.0 | OpenAI-centric, Rust, limited multi-provider |
+| Aider | Apache-2.0 | No MCP, no bash tool, Python |
+| Cline | Apache-2.0 | IDE-only, no headless |
+| Gemini CLI | Apache-2.0 | Google-centric provider support |
+| Crush | FSL-1.1-MIT | Not truly open source |
 
-### spawnbot v1 Bugs Found
-- Wire spawn readiness is timer, not real signal
-- Dual conversation logging (daemon + convo_log tool)
-- flow_start HTTP loopback has no timeout
-- _fixLogPermissions deletes unwritable logs
-- _attemptRecovery doesn't emit wire_ready
-- fs.watch recursive unreliable on Linux
-
-Full analyses saved in Claude Code memory files:
-- openclaw-analysis.md
-- thepopebot-analysis.md
-- spawnbot-v1-audit.md
+## Innovation Inventory (from all sources, to port)
+1. Priority Input Queue — spawnbot v1 (~100 lines)
+2. Source Attribution — spawnbot v1 + OC Epic 3 (~30 lines)
+3. Autonomy Loop — spawnbot v1 + OC Epic 3 (~150 lines)
+4. Poller Manager — spawnbot v1 + OC Epic 3 (~150 lines)
+5. SQLite Memory FTS5 + decay — spawnbot v1 + OC Epic 2 (~300 lines)
+6. Context Director — OC Epic 2 (~200 lines)
+7. LLM Co-Creation Onboarding — spawnbot v1 (~400 lines)
+8. SOUL.yaml Personality — spawnbot v1 (~50 lines)
