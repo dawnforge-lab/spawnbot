@@ -11,7 +11,7 @@ import PROMPT_CODEX from "./prompt/codex_header.txt"
 import PROMPT_TRINITY from "./prompt/trinity.txt"
 import type { Provider } from "@/provider/provider"
 
-import { loadSoul } from "../soul"
+import { loadSoul, buildDocsReference } from "../soul"
 import { editorContextEnvLines, type EditorContext } from "../kilocode/editor-context"
 
 export namespace SystemPrompt {
@@ -51,10 +51,9 @@ export namespace SystemPrompt {
     return [PROMPT_ANTHROPIC_WITHOUT_TODO]
   }
 
-  // kilocode_change start
   export async function environment(model: Provider.Model, editorContext?: EditorContext) {
-    // kilocode_change end
     const project = Instance.project
+    const docsRef = buildDocsReference()
     return [
       [
         `You are powered by the model named ${model.api.id}. The exact model ID is ${model.providerID}/${model.api.id}`,
@@ -63,8 +62,9 @@ export namespace SystemPrompt {
         `  Working directory: ${Instance.directory}`,
         `  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}`,
         `  Platform: ${process.platform}`,
-        ...editorContextEnvLines(editorContext), // kilocode_change
+        ...editorContextEnvLines(editorContext),
         `</env>`,
+        ...(docsRef ? [docsRef] : []),
         `<directories>`,
         `  ${
           project.vcs === "git" && false
