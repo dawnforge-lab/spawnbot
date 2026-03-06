@@ -15,6 +15,7 @@ import { Discovery } from "./discovery"
 import { Glob } from "../util/glob"
 
 import { KilocodePaths } from "../kilocode/paths" // kilocode_change
+import { ConfigPaths } from "../config/paths"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
@@ -119,6 +120,31 @@ export namespace Skill {
       })) {
         await scanExternal(root, "project")
       }
+    }
+
+    // Scan .spawnbot/skills/ directories (project and global)
+    const spawnbotDirs = await ConfigPaths.directories(Instance.directory, Instance.worktree)
+    for (const dir of spawnbotDirs) {
+      const matches = await Glob.scan(KILO_SKILL_PATTERN, {
+        cwd: dir,
+        absolute: true,
+        include: "file",
+        symlink: true,
+      }).catch(() => [] as string[])
+      for (const match of matches) {
+        await addSkill(match)
+      }
+    }
+
+    // Scan built-in skills shipped with spawnbot
+    const builtinDir = path.join(path.dirname(new URL(import.meta.url).pathname), "builtin")
+    const builtinMatches = await Glob.scan("*/SKILL.md", {
+      cwd: builtinDir,
+      absolute: true,
+      include: "file",
+    }).catch(() => [] as string[])
+    for (const match of builtinMatches) {
+      await addSkill(match)
     }
 
     // kilocode_change start - Scan Kilocode skill directories

@@ -14,6 +14,7 @@ const DOCS = {
   user: "USER.md",
   goals: "GOALS.md",
   playbook: "PLAYBOOK.md",
+  skills: "SKILLS.md",
 } as const
 
 /**
@@ -107,6 +108,7 @@ function describeDoc(key: string): string {
     case "user": return "about your owner"
     case "goals": return "current objectives and targets"
     case "playbook": return "action templates and procedures"
+    case "skills": return "index of your skills and tools — read this to know what you can do, update it when you create new skills or tools"
     default: return key
   }
 }
