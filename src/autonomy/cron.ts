@@ -2,6 +2,7 @@ import { Cron } from "croner"
 import { InputQueue } from "@/input/queue"
 import { Log } from "@/util/log"
 import { ulid } from "ulid"
+import * as prompts from "./prompts"
 
 const log = Log.create({ service: "autonomy.cron" })
 
@@ -31,10 +32,13 @@ export namespace CronScheduler {
 
     const cron = new Cron(config.schedule, () => {
       log.info("cron job firing", { name: config.name })
+      const content = config.prompt.trim()
+        ? prompts.cronWithContent(config.name, config.prompt)
+        : prompts.cronEmpty(config.name)
       InputQueue.enqueue({
         id: ulid(),
         source: `cron/${config.name}`,
-        content: config.prompt,
+        content,
         priority: config.priority ?? "normal",
         timestamp: Date.now(),
       })

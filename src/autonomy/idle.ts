@@ -1,6 +1,7 @@
 import { InputQueue } from "@/input/queue"
 import { Log } from "@/util/log"
 import { ulid } from "ulid"
+import * as prompts from "./prompts"
 
 const log = Log.create({ service: "autonomy.idle" })
 
@@ -10,8 +11,8 @@ export namespace IdleLoop {
 
   // Escalation thresholds (in ms)
   const BASE_INTERVAL = 30 * 60 * 1000 // 30 min
-  const ESCALATION_THRESHOLD = 2 * 60 * 60 * 1000 // 2h → check every 15 min
-  const WARNING_THRESHOLD = 6 * 60 * 60 * 1000 // 6h → warning check
+  const ESCALATION_THRESHOLD = 2 * 60 * 60 * 1000 // 2h
+  const WARNING_THRESHOLD = 6 * 60 * 60 * 1000 // 6h
 
   const CHECK_INTERVAL = 60 * 1000 // check every minute if we should fire
 
@@ -28,22 +29,13 @@ export namespace IdleLoop {
       const idle = Date.now() - lastActivity
 
       if (idle >= WARNING_THRESHOLD) {
-        enqueueIdleEvent(
-          "You have been idle for over 6 hours. Check on your goals and tasks. Is there anything that needs attention?",
-          "normal",
-        )
+        enqueueIdleEvent(prompts.idleWarning(), "normal")
         // Reset so we don't spam — next check after another base interval
         lastActivity = Date.now() - ESCALATION_THRESHOLD
       } else if (idle >= ESCALATION_THRESHOLD) {
-        enqueueIdleEvent(
-          "You have been idle for a while. Review your current goals and see if there's anything you should work on.",
-          "low",
-        )
+        enqueueIdleEvent(prompts.idleEscalation(), "low")
       } else if (idle >= BASE_INTERVAL) {
-        enqueueIdleEvent(
-          "Periodic check-in. Review your goals and recent activity. Is there anything you should be doing?",
-          "low",
-        )
+        enqueueIdleEvent(prompts.idleBase(), "low")
       }
     }, CHECK_INTERVAL)
 

@@ -1,6 +1,7 @@
 import { InputQueue } from "@/input/queue"
 import { Log } from "@/util/log"
 import { ulid } from "ulid"
+import * as prompts from "./prompts"
 
 const log = Log.create({ service: "autonomy.poller" })
 
@@ -101,13 +102,13 @@ export namespace PollerManager {
     try {
       const result = await running.poller.poll(running.state)
 
-      // Enqueue events
+      // Enqueue events with action-oriented prompts
       for (const event of result.events) {
         InputQueue.enqueue({
           id: ulid(),
           source: `poller/${name}`,
           sender: event.sender,
-          content: event.content,
+          content: prompts.pollerEvent(name, event.content),
           priority: event.priority ?? "normal",
           metadata: event.metadata,
           timestamp: Date.now(),

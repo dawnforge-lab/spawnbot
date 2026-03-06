@@ -6,6 +6,7 @@ import { CronScheduler } from "@/autonomy/cron"
 import { PollerManager } from "@/autonomy/poller"
 import { IdleLoop } from "@/autonomy/idle"
 import { startDecay, stopDecay } from "@/autonomy/decay"
+import { isAutonomousSource } from "@/autonomy/filter"
 import { Tunnel } from "@/tunnel"
 import { deliverResponse } from "@/input/response"
 import { flushFromCompaction } from "@/memory/flush"
@@ -14,6 +15,7 @@ import { Bus } from "@/bus"
 import { loadEnv, loadCrons, wirePollerState, saveSessionID, loadSessionID, clearSessionID } from "./config"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
+import { Skill } from "@/skill/skill"
 import { Identifier } from "@/id/id"
 import { MessageV2 } from "@/session/message-v2"
 
@@ -84,10 +86,18 @@ export namespace Daemon {
       const input = InputRouter.formatInput(event)
       IdleLoop.touch()
 
+      // For autonomous events, inject the autonomous-behavior skill into context
+      let system: string | undefined
+      if (isAutonomousSource(event.source)) {
+        const skill = await Skill.get("autonomous-behavior").catch(() => undefined)
+        if (skill) system = skill.content
+      }
+
       const messageID = Identifier.ascending("message")
       const result = await SessionPrompt.prompt({
         sessionID: sessionID!,
         messageID,
+        system,
         parts: [{ type: "text", text: input }],
       })
 
