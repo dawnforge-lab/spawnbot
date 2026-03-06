@@ -192,7 +192,7 @@ export namespace Installation {
 
   export const VERSION = typeof KILO_VERSION === "string" ? KILO_VERSION : "local"
   export const CHANNEL = typeof KILO_CHANNEL === "string" ? KILO_CHANNEL : "local"
-  export const USER_AGENT = `kilo/${CHANNEL}/${VERSION}/${Flag.KILO_CLIENT}` // kilocode_change
+  export const USER_AGENT = `spawnbot/${CHANNEL}/${VERSION}/${Flag.KILO_CLIENT}`
 
   export async function latest(installMethod?: Method) {
     const detectedMethod = installMethod || (await method())
@@ -254,7 +254,7 @@ export namespace Installation {
         .then((data: any) => data.version)
     }
 
-    return fetch("https://api.github.com/repos/Kilo-Org/kilocode/releases/latest")
+    return fetch("https://api.github.com/repos/dawnforge-lab/spawnbot/releases/latest")
       .then((res) => {
         if (!res.ok) throw new Error(res.statusText)
         return res.json()

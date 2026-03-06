@@ -180,13 +180,13 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string[]> = {
-      npm: ["npm", "uninstall", "-g", "@kilocode/cli"], // kilocode_change
-      pnpm: ["pnpm", "uninstall", "-g", "@kilocode/cli"], // kilocode_change
-      bun: ["bun", "remove", "-g", "@kilocode/cli"], // kilocode_change
-      yarn: ["yarn", "global", "remove", "@kilocode/cli"], // kilocode_change
-      brew: ["brew", "uninstall", "opencode"],
-      choco: ["choco", "uninstall", "kilo"], // kilocode_change
-      scoop: ["scoop", "uninstall", "kilo"], // kilocode_change
+      npm: ["npm", "uninstall", "-g", "spawnbot"],
+      pnpm: ["pnpm", "uninstall", "-g", "spawnbot"],
+      bun: ["bun", "remove", "-g", "spawnbot"],
+      yarn: ["yarn", "global", "remove", "spawnbot"],
+      brew: ["brew", "uninstall", "spawnbot"],
+      choco: ["choco", "uninstall", "spawnbot"],
+      scoop: ["scoop", "uninstall", "spawnbot"],
     }
 
     const cmd = cmds[method]
@@ -194,7 +194,7 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
       spinner.start(`Running ${cmd.join(" ")}...`)
       const result =
         method === "choco"
-          ? await $`echo Y | choco uninstall kilo -y -r`.quiet().nothrow() // kilocode_change
+          ? await $`echo Y | choco uninstall spawnbot -y -r`.quiet().nothrow()
           : await $`${cmd}`.quiet().nothrow()
       if (result.exitCode !== 0) {
         spinner.stop(`Package manager uninstall failed: exit code ${result.exitCode}`, 1)

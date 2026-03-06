@@ -209,8 +209,7 @@ export namespace Config {
     // Project config overrides global and remote config.
     if (!Flag.KILO_DISABLE_PROJECT_CONFIG) {
       // kilocode_change start
-      for (const file of ["kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
-        // kilocode_change end
+      for (const file of ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
         result = mergeConfigConcatArrays(result, await loadFile(file))
       }
     }
@@ -230,9 +229,8 @@ export namespace Config {
 
     for (const dir of unique(directories)) {
       // kilocode_change start
-      if (dir.endsWith(".kilo") || dir.endsWith(".opencode") || dir === Flag.KILO_CONFIG_DIR) {
-        for (const file of ["kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
-          // kilocode_change end
+      if (dir.endsWith(".spawnbot") || dir.endsWith(".kilo") || dir.endsWith(".opencode") || dir === Flag.KILO_CONFIG_DIR) {
+        for (const file of ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
           log.debug(`loading config from ${path.join(dir, file)}`)
           result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
           // to satisfy the type checker
@@ -273,8 +271,7 @@ export namespace Config {
     // This way it only loads config file and not skills/plugins/commands
     if (existsSync(managedDir)) {
       // kilocode_change start
-      for (const file of ["kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
-        // kilocode_change end
+      for (const file of ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
         result = mergeConfigConcatArrays(result, await loadFile(path.join(managedDir, file)))
       }
     }
@@ -448,6 +445,8 @@ export namespace Config {
       if (!md) continue
 
       const patterns = [
+        "/.spawnbot/command/",
+        "/.spawnbot/commands/",
         "/.kilo/command/",
         "/.kilo/commands/",
         "/.opencode/command/",
@@ -495,6 +494,8 @@ export namespace Config {
 
       // kilocode_change start
       const patterns = [
+        "/.spawnbot/agent/",
+        "/.spawnbot/agents/",
         "/.kilo/agent/",
         "/.kilo/agents/",
         "/.opencode/agent/",
@@ -1025,7 +1026,7 @@ export namespace Config {
       port: z.number().int().positive().optional().describe("Port to listen on"),
       hostname: z.string().optional().describe("Hostname to listen on"),
       mdns: z.boolean().optional().describe("Enable mDNS service discovery"),
-      mdnsDomain: z.string().optional().describe("Custom domain name for mDNS service (default: opencode.local)"),
+      mdnsDomain: z.string().optional().describe("Custom domain name for mDNS service (default: spawnbot.local)"),
       cors: z.array(z.string()).optional().describe("Additional domains to allow for CORS"),
     })
     .strict()
@@ -1293,10 +1294,10 @@ export namespace Config {
     let result: Info = pipe(
       {},
       mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),
-      // kilocode_change start
+      mergeDeep(await loadFile(path.join(Global.Path.config, "spawnbot.json"))),
+      mergeDeep(await loadFile(path.join(Global.Path.config, "spawnbot.jsonc"))),
       mergeDeep(await loadFile(path.join(Global.Path.config, "kilo.json"))),
       mergeDeep(await loadFile(path.join(Global.Path.config, "kilo.jsonc"))),
-      // kilocode_change end
       mergeDeep(await loadFile(path.join(Global.Path.config, "opencode.json"))),
       mergeDeep(await loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
     )
@@ -1413,8 +1414,7 @@ export namespace Config {
 
   function globalConfigFile() {
     // kilocode_change start
-    const candidates = ["kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json", "config.json"].map((file) =>
-      // kilocode_change end
+    const candidates = ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json", "config.json"].map((file) =>
       path.join(Global.Path.config, file),
     )
     for (const file of candidates) {

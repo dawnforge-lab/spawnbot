@@ -162,7 +162,7 @@ export const McpAuthCommand = cmd({
 
         if (oauthServers.length === 0) {
           prompts.log.warn("No OAuth-capable MCP servers configured")
-          prompts.log.info("Remote MCP servers support OAuth by default. Add a remote server in opencode.json:")
+          prompts.log.info("Remote MCP servers support OAuth by default. Add a remote server in spawnbot.json:")
           prompts.log.info(`
   "mcp": {
     "my-server": {
@@ -382,19 +382,25 @@ export const McpLogoutCommand = cmd({
 
 async function resolveConfigPath(baseDir: string, global = false) {
   // Check for existing config files (prefer .jsonc over .json, check .opencode/ subdirectory too)
-  const candidates = [path.join(baseDir, "opencode.json"), path.join(baseDir, "opencode.jsonc")]
+  const candidates = [path.join(baseDir, "spawnbot.json"), path.join(baseDir, "spawnbot.jsonc")]
 
   if (!global) {
-    candidates.push(path.join(baseDir, ".opencode", "opencode.json"), path.join(baseDir, ".opencode", "opencode.jsonc"))
+    candidates.push(path.join(baseDir, ".spawnbot", "spawnbot.json"), path.join(baseDir, ".spawnbot", "spawnbot.jsonc"))
   }
 
-  for (const candidate of candidates) {
+  // Also check legacy config locations
+  const legacy = [path.join(baseDir, "opencode.json"), path.join(baseDir, "opencode.jsonc")]
+  if (!global) {
+    legacy.push(path.join(baseDir, ".opencode", "opencode.json"), path.join(baseDir, ".opencode", "opencode.jsonc"))
+  }
+
+  for (const candidate of [...candidates, ...legacy]) {
     if (await Filesystem.exists(candidate)) {
       return candidate
     }
   }
 
-  // Default to opencode.json if none exist
+  // Default to spawnbot.json if none exist
   return candidates[0]
 }
 
