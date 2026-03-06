@@ -29,6 +29,6 @@ export function createKiloRoutes() {
   return null
 }
 
-export function KiloAuthPlugin() {
+export async function KiloAuthPlugin() {
   return undefined
 }

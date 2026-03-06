@@ -184,7 +184,6 @@ export namespace ModelsDev {
     })
     if (result && result.ok) {
       await Filesystem.write(filepath, await result.text())
-      ModelsDev.Data.reset()
     }
   }
 }
