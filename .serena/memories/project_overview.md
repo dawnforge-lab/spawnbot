@@ -21,7 +21,9 @@ Autonomous AI agent framework forked from **Kilo Code CLI** (MIT license). Adds 
 - **License:** MIT
 
 ## Current Status
-**Phase 1: Fork & Strip** — Not yet started. Codebase cleaned of old v1 JS code. Plan written at `docs/plan-v3-kilocode-fork.md`.
+**Phase 1: Fork & Strip** — COMPLETE. Kilo Code CLI extracted, telemetry/gateway stubbed, imports rewritten, user-facing strings rebranded to spawnbot. CLI boots and shows help. Config files use `spawnbot.json`, config dirs use `.spawnbot/`, mDNS uses `spawnbot.local`. Legacy `kilo.json`/`opencode.json` still supported as fallback.
+
+Next: Phase 2 (SOUL.yaml personality system).
 
 ## Key Design Principles
 1. Telegram is core, everything else is an add-on

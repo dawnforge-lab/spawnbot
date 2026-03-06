@@ -11,21 +11,17 @@ import PROMPT_CODEX from "./prompt/codex_header.txt"
 import PROMPT_TRINITY from "./prompt/trinity.txt"
 import type { Provider } from "@/provider/provider"
 
-// kilocode_change start
-import SOUL from "../kilocode/soul.txt"
+import { loadSoul } from "../soul"
 import { editorContextEnvLines, type EditorContext } from "../kilocode/editor-context"
-// kilocode_change end
 
 export namespace SystemPrompt {
   export function instructions() {
     return PROMPT_CODEX.trim()
   }
 
-  // kilocode_change start
   export function soul() {
-    return SOUL.trim()
+    return loadSoul()
   }
-  // kilocode_change end
 
   export function provider(model: Provider.Model) {
     // kilocode_change start
