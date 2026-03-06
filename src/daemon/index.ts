@@ -8,7 +8,7 @@ import { IdleLoop } from "@/autonomy/idle"
 import { startDecay, stopDecay } from "@/autonomy/decay"
 import { Tunnel } from "@/tunnel"
 import { deliverResponse } from "@/input/response"
-import { loadEnv, loadCrons, wirePollerState } from "./config"
+import { loadEnv, loadCrons, wirePollerState, saveSessionID, loadSessionID, clearSessionID } from "./config"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Identifier } from "@/id/id"
@@ -52,14 +52,29 @@ export namespace Daemon {
       log.info("ngrok tunnel established", { url: webhookUrl })
     }
 
-    // Create a persistent session for daemon processing
-    // Auto-approve all permissions (daemon runs autonomously)
-    const session = await Session.create({
-      title: "Daemon session",
-      permission: [{ permission: "*", pattern: "*", action: "allow" }],
-    })
-    sessionID = session.id
-    log.info("daemon session created", { sessionID })
+    // Resume existing daemon session or create a new one
+    const autoApprove: Session.Info["permission"] = [{ permission: "*", pattern: "*", action: "allow" }]
+    const previousID = loadSessionID()
+
+    if (previousID) {
+      const existing = await Session.get(previousID).catch(() => undefined)
+      if (existing) {
+        sessionID = existing.id
+        // Ensure permissions are set for resumed session
+        await Session.setPermission({ sessionID: existing.id, permission: autoApprove })
+        log.info("resumed daemon session", { sessionID })
+      }
+    }
+
+    if (!sessionID) {
+      const session = await Session.create({
+        title: "Daemon session",
+        permission: autoApprove,
+      })
+      sessionID = session.id
+      saveSessionID(session.id)
+      log.info("created new daemon session", { sessionID })
+    }
 
     // Wire input router to process events through the session
     InputRouter.setHandler(async (event) => {
@@ -143,6 +158,12 @@ export namespace Daemon {
   /** Get the current daemon session ID */
   export function getSessionID() {
     return sessionID
+  }
+
+  /** Reset the daemon session — next start will create a fresh one */
+  export function resetSession() {
+    clearSessionID()
+    sessionID = undefined
   }
 }
 

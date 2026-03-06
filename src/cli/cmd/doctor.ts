@@ -83,6 +83,15 @@ export const DoctorCommand = cmd({
             : `Missing: ${Global.Path.data}`
         },
       },
+      {
+        name: "Daemon session",
+        run: () => {
+          const file = path.join(Global.Path.data, "daemon-session-id")
+          if (!fs.existsSync(file)) return "No persisted session (will create on first daemon start)"
+          const id = fs.readFileSync(file, "utf-8").trim()
+          return id ? undefined : "Empty session file (will create on next daemon start)"
+        },
+      },
     ]
 
     let passed = 0

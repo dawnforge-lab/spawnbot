@@ -87,6 +87,43 @@ export function wirePollerState() {
   log.info("poller state persistence wired", { dir: stateDir })
 }
 
+/**
+ * Persist the daemon session ID so it survives restarts.
+ */
+export function saveSessionID(sessionID: string) {
+  const file = sessionIDPath()
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, sessionID)
+  log.info("saved daemon session ID", { sessionID, path: file })
+}
+
+/**
+ * Load the previously persisted daemon session ID, if any.
+ */
+export function loadSessionID(): string | undefined {
+  const file = sessionIDPath()
+  if (!fs.existsSync(file)) return undefined
+  const id = fs.readFileSync(file, "utf-8").trim()
+  if (!id) return undefined
+  log.info("loaded daemon session ID", { sessionID: id })
+  return id
+}
+
+/**
+ * Clear the persisted daemon session ID (for reset).
+ */
+export function clearSessionID() {
+  const file = sessionIDPath()
+  if (fs.existsSync(file)) {
+    fs.unlinkSync(file)
+    log.info("cleared daemon session ID")
+  }
+}
+
+function sessionIDPath(): string {
+  return path.join(Global.Path.data, "daemon-session-id")
+}
+
 function tryPath(p: string): string | undefined {
   return fs.existsSync(p) ? p : undefined
 }

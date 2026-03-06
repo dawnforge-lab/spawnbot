@@ -31,6 +31,7 @@ import { SessionCommand } from "./cli/cmd/session"
 import { SetupCommand } from "./cli/cmd/setup"
 import { DoctorCommand } from "./cli/cmd/doctor"
 import { DaemonCommand } from "./cli/cmd/daemon"
+import { ResetSessionCommand } from "./cli/cmd/reset-session"
 // kilocode_change start - Import telemetry, instance disposal, and legacy migration
 import { Telemetry } from "@/stubs/telemetry"
 import { Instance } from "./project/instance" // kilocode_change
@@ -193,6 +194,7 @@ let cli = yargs(hideBin(process.argv))
   .command(SetupCommand)
   .command(DoctorCommand)
   .command(DaemonCommand)
+  .command(ResetSessionCommand)
 
 if (Installation.isLocal()) {
   cli = cli.command(WorkspaceServeCommand)
