@@ -75,16 +75,12 @@ export namespace LLM {
     const system = []
     system.push(
       [
-        // kilocode_change start - soul defines core identity and personality
-        ...(isCodex ? [] : [SystemPrompt.soul()]),
-        // kilocode_change end
-        // use agent prompt otherwise provider prompt
-        // For Codex sessions, skip SystemPrompt.provider() since it's sent via options.instructions
-        ...(input.agent.prompt ? [input.agent.prompt] : isCodex ? [] : SystemPrompt.provider(input.model)),
-        // any custom prompt passed into this call
+        // SOUL.md defines core identity and personality
+        SystemPrompt.soul(),
+        // Agent-specific prompt (if set on the agent definition)
+        ...(input.agent.prompt ? [input.agent.prompt] : []),
+        // Extra system context passed into this call (environment block, etc.)
         ...input.system,
-        // any custom prompt from last user message
-        ...(input.user.system ? [input.user.system] : []),
       ]
         .filter((x) => x)
         .join("\n"),
