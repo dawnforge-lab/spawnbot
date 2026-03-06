@@ -571,6 +571,69 @@ export const SetupCommand = cmd({
       prompts.log.info("Only manual mode available on this platform.")
     }
 
+    // ── Step 8: Agent model configuration ──────────────────────────────
+    interface AgentModelConfig {
+      [agentName: string]: { providerID: string; modelID: string }
+    }
+    let agentModels: AgentModelConfig = {}
+
+    const wantsAgentModels = unwrap(
+      await prompts.confirm({
+        message: "Configure different models for subagents? (e.g., cheap model for exploration, strong model for coding)",
+        initialValue: false,
+      }),
+    )
+
+    if (wantsAgentModels) {
+      prompts.log.info(
+        "The main agent uses your selected provider. You can assign different models to specific roles.",
+      )
+      prompts.log.info(
+        `Current default: ${provider.name} / ${provider.defaultModel}`,
+      )
+
+      const agentRoles = [
+        { name: "explore", label: "Explorer", hint: "codebase search and file reading — can use a fast/cheap model" },
+        { name: "general", label: "General subagent", hint: "delegated subtasks — can use a different model" },
+        { name: "compaction", label: "Compaction", hint: "context summarization — can use a cheap model" },
+        { name: "title", label: "Title generation", hint: "session naming — can use a tiny model" },
+      ]
+
+      for (const role of agentRoles) {
+        const configure = unwrap(
+          await prompts.confirm({
+            message: `Configure model for ${role.label}? (${role.hint})`,
+            initialValue: false,
+          }),
+        )
+        if (!configure) continue
+
+        const roleProvider = unwrap(
+          await prompts.select({
+            message: `Provider for ${role.label}:`,
+            options: PROVIDERS.map((p) => ({
+              value: p.id,
+              label: p.name,
+              hint: p.id === providerId ? "current default" : undefined,
+            })),
+            initialValue: providerId,
+          }),
+        )
+
+        const rp = PROVIDERS.find((p) => p.id === roleProvider)!
+        const roleModel = unwrap(
+          await prompts.text({
+            message: `Model ID for ${role.label}:`,
+            defaultValue: rp.defaultModel,
+            placeholder: rp.defaultModel,
+          }),
+        ).trim()
+
+        agentModels[role.name] = { providerID: roleProvider, modelID: roleModel }
+        prompts.log.success(`${role.label}: ${rp.name} / ${roleModel}`)
+      }
+    }
+
     // ── Write files ───────────────────────────────────────────────────
     fs.mkdirSync(baseDir, { recursive: true })
 
@@ -621,6 +684,22 @@ export const SetupCommand = cmd({
       )
     }
 
+    // spawnbot.json — config with model, agent overrides, and schema
+    const config: Record<string, any> = {
+      $schema: "https://opencode.ai/config.json",
+      model: { providerID: providerId, modelID: provider.defaultModel },
+    }
+    if (Object.keys(agentModels).length > 0) {
+      config.agent = {}
+      for (const [name, model] of Object.entries(agentModels)) {
+        config.agent[name] = { model }
+      }
+    }
+    fs.writeFileSync(
+      path.join(baseDir, "spawnbot.json"),
+      JSON.stringify(config, null, 2) + "\n",
+    )
+
     ws.stop("Config files written.")
 
     // ── Install service if requested ──────────────────────────────────
@@ -633,7 +712,7 @@ export const SetupCommand = cmd({
     }
 
     // ── Summary ───────────────────────────────────────────────────────
-    const createdFiles = ["SOUL.md", "USER.md", "GOALS.md", "PLAYBOOK.md"]
+    const createdFiles = ["SOUL.md", "USER.md", "GOALS.md", "PLAYBOOK.md", "spawnbot.json"]
     if (envLines.length > 0) createdFiles.push(".env")
     if (wantsCrons) createdFiles.push("CRONS.yaml")
 
@@ -644,6 +723,9 @@ export const SetupCommand = cmd({
         `Location: ${baseDir}`,
         telegramToken ? `Telegram: @${botUsername}` : "Telegram: not configured",
         openaiKeyForServices ? "Whisper + Embeddings: enabled" : "Whisper + Embeddings: not configured",
+        Object.keys(agentModels).length > 0
+          ? `Agent models: ${Object.entries(agentModels).map(([k, v]) => `${k}=${v.modelID}`).join(", ")}`
+          : "Agent models: all using default",
         `Run mode: ${runMode}${serviceInstalled ? " (installed)" : ""}`,
         "",
         "Files created:",
