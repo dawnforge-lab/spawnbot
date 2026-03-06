@@ -50,9 +50,7 @@ export function DialogStatus() {
           esc
         </text>
       </box>
-      {/* kilocode_change start */}
-      <text fg={theme.textMuted}>Kilo v{Installation.VERSION}</text>
-      {/* kilocode_change end */}
+      <text fg={theme.textMuted}>Spawnbot v{Installation.VERSION}</text>
       <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.text}>No MCP Servers</text>}>
         <box>
           <text fg={theme.text}>{Object.keys(sync.data.mcp).length} MCP Servers</text>
@@ -83,7 +81,7 @@ export function DialogStatus() {
                       <Match when={item.status === "failed" && item}>{(val) => val().error}</Match>
                       <Match when={item.status === "disabled"}>Disabled in configuration</Match>
                       <Match when={(item.status as string) === "needs_auth"}>
-                        Needs authentication (run: kilo mcp auth {key}){/* kilocode_change */}
+                        Needs authentication (run: spawnbot mcp auth {key})
                       </Match>
                       <Match when={(item.status as string) === "needs_client_registration" && item}>
                         {(val) => (val() as { error: string }).error}

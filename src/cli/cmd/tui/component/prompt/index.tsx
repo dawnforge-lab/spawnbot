@@ -1137,13 +1137,11 @@ export function Prompt(props: PromptProps) {
           </Show>
           <Show when={status().type !== "retry"}>
             <box gap={2} flexDirection="row">
-              {/* kilocode_change start - show "ctrl+c again to exit" hint */}
               <Show when={store.exitPress > 0}>
                 <text fg={theme.primary}>
                   ctrl+c <span style={{ fg: theme.primary }}>again to exit</span>
                 </text>
               </Show>
-              {/* kilocode_change end */}
               <Switch>
                 <Match when={store.mode === "normal"}>
                   <Show when={local.model.variant.list().length > 0}>

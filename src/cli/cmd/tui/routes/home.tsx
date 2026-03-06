@@ -123,7 +123,6 @@ export function Home() {
             hint={Hint}
           />
         </box>
-        {/* kilocode_change - KiloNews added */}
         <box width="100%" maxWidth={75} alignItems="center" paddingTop={2} gap={1}>
           <Show when={!newsHidden()}>
             <KiloNews />

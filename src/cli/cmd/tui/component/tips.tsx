@@ -1,6 +1,3 @@
-
-export { Tips } from "@/kilocode/components/tips"
-
 import { For } from "solid-js"
 import { DEFAULT_THEMES, useTheme } from "@tui/context/theme"
 
@@ -33,7 +30,7 @@ function parse(tip: string): TipPart[] {
   return parts
 }
 
-function _Tips() {
+export function Tips() {
   const theme = useTheme().theme
   const parts = parse(TIPS[Math.floor(Math.random() * TIPS.length)])
 

@@ -1,4 +1,3 @@
-// kilocode_change - new file
 /**
  * Debounced Instance.disposeAll() helper.
  *

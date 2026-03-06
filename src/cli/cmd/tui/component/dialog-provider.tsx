@@ -13,7 +13,6 @@ import { DialogModel } from "./dialog-model"
 import { useKeyboard } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
-import { KiloAutoMethod } from "@/kilocode/components/dialog-kilo-auto-method"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
   kilo: -1,
@@ -80,30 +79,14 @@ export function createDialogProviderOptions() {
               ))
             }
             if (result.data?.method === "auto") {
-
-              if (provider.id === "kilo") {
-                dialog.replace(() => (
-                  <KiloAutoMethod
-                    providerID={provider.id}
-                    title={method.label}
-                    index={index}
-                    authorization={result.data!}
-                    useSDK={useSDK}
-                    useTheme={useTheme}
-                    DialogModel={DialogModel}
-                  />
-                ))
-              } else {
-                dialog.replace(() => (
-                  <AutoMethod
-                    providerID={provider.id}
-                    title={method.label}
-                    index={index}
-                    authorization={result.data!}
-                  />
-                ))
-              }
-
+              dialog.replace(() => (
+                <AutoMethod
+                  providerID={provider.id}
+                  title={method.label}
+                  index={index}
+                  authorization={result.data!}
+                />
+              ))
             }
           }
           if (method.type === "api") {
@@ -237,23 +220,7 @@ function ApiMethod(props: ApiMethodProps) {
     <DialogPrompt
       title={props.title}
       placeholder="API key"
-      description={
-        {
-          kilo: (
-            <box gap={1}>
-              {/* kilocode_change start */}
-              <text fg={theme.textMuted}>
-                Kilo Gateway gives you access to all the best coding models at the cheapest prices with a single API
-                key.
-              </text>
-              <text fg={theme.text}>
-                Go to <span style={{ fg: theme.primary }}>https://kilo.ai/gateway</span> to get a key
-              </text>
-              {/* kilocode_change end */}
-            </box>
-          ),
-        }[props.providerID] ?? undefined
-      }
+      description={undefined}
       onConfirm={async (value) => {
         if (!value) return
         await sdk.client.auth.set({
