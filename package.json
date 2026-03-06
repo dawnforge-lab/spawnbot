@@ -1,0 +1,41 @@
+{
+  "name": "spawnbot",
+  "version": "0.1.0",
+  "description": "Autonomous AI agent framework built on Kimi CLI",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "spawnbot": "./bin/spawnbot.js",
+    "spawnbot-mcp-telegram": "./bin/mcp-telegram.js",
+    "spawnbot-mcp-core": "./bin/mcp-core.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node bin/spawnbot.js start",
+    "dev": "node bin/spawnbot.js start --foreground",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@grammyjs/parse-mode": "^1.10.0",
+    "@inquirer/prompts": "^8.3.0",
+    "@modelcontextprotocol/sdk": "^1.25.0",
+    "better-sqlite3": "^11.0.0",
+    "chalk": "^5.6.2",
+    "dotenv": "^16.4.0",
+    "drizzle-orm": "^0.38.0",
+    "grammy": "^1.30.0",
+    "node-cron": "^3.0.0",
+    "ora": "^9.3.0",
+    "uuid": "^11.0.0",
+    "yaml": "^2.6.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.0"
+  },
+  "optionalDependencies": {
+    "@ngrok/ngrok": "^1.4.0"
+  }
+}

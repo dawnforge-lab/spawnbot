@@ -1,0 +1,25 @@
+[Unit]
+Description=SpawnBot — Autonomous AI Agent
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/opt/spawnbot
+ExecStart=/usr/bin/node bin/spawnbot.js start --foreground
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/spawnbot/data/logs/spawnbot.log
+StandardError=append:/opt/spawnbot/data/logs/spawnbot.log
+
+# Environment
+EnvironmentFile=/opt/spawnbot/.env
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/spawnbot/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
