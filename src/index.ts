@@ -29,6 +29,7 @@ import { EOL } from "os"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { SetupCommand } from "./cli/cmd/setup"
+import { DoctorCommand } from "./cli/cmd/doctor"
 // kilocode_change start - Import telemetry, instance disposal, and legacy migration
 import { Telemetry } from "@/stubs/telemetry"
 import { Instance } from "./project/instance" // kilocode_change
@@ -189,6 +190,7 @@ let cli = yargs(hideBin(process.argv))
   .command(SessionCommand)
   .command(DbCommand)
   .command(SetupCommand)
+  .command(DoctorCommand)
 
 if (Installation.isLocal()) {
   cli = cli.command(WorkspaceServeCommand)

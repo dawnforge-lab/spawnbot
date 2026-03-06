@@ -199,9 +199,19 @@ export namespace Memory {
   }
 
   /** Get memory count and stats */
-  export function stats(): { total: number; byCategory: Record<string, number> } {
+  export function stats(): { total: number; byCategory: Record<string, number>; avgImportance: number } {
     return Database.use((db) => {
-      const total = db.select({ count: sql<number>`count(*)` }).from(MemoryTable).get()?.count ?? 0
+      const agg = db
+        .select({
+          count: sql<number>`count(*)`,
+          avgImportance: sql<number>`coalesce(avg(importance), 0)`,
+        })
+        .from(MemoryTable)
+        .get()
+
+      const total = agg?.count ?? 0
+      const avgImportance = Math.round((agg?.avgImportance ?? 0) * 1000) / 1000
+
       const categories = db
         .select({
           category: MemoryTable.category,
@@ -216,7 +226,7 @@ export namespace Memory {
         byCategory[row.category] = row.count
       }
 
-      return { total, byCategory }
+      return { total, byCategory, avgImportance }
     })
   }
 
