@@ -74,10 +74,11 @@ export namespace LLM {
     const isPrimaryAgent = input.agent.mode === "primary" && !input.agent.hidden
     system.push(
       [
-        // Primary agents get SOUL.md (personality, identity, communication style)
-        // Subagents/hidden agents get the provider's default prompt (efficient worker instructions)
-        ...(isPrimaryAgent ? [SystemPrompt.soul()] : SystemPrompt.provider(input.model)),
-        // Agent-specific prompt (if set on the agent definition)
+        // Layer 1: Provider prompt — operational capabilities (tools, formatting, git)
+        ...SystemPrompt.provider(input.model),
+        // Layer 2: SOUL.md — personality and identity (primary/user-facing agents only)
+        ...(isPrimaryAgent ? [SystemPrompt.soul()] : []),
+        // Layer 3: Agent prompt — role specialization (debug methodology, explore strategy, etc.)
         ...(input.agent.prompt ? [input.agent.prompt] : []),
         // Extra system context passed into this call (environment block, etc.)
         ...input.system,
