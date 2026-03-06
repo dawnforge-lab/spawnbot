@@ -15,9 +15,9 @@ export const GenerateCommand = {
           {
             lang: "js",
             source: [
-              `import { createKiloClient } from "@kilocode/sdk"`,
+              `import { createKiloClient as createClient } from "@kilocode/sdk"`,
               ``,
-              `const client = createKiloClient()`,
+              `const client = createClient()`,
               `await client.${operation.operationId}({`,
               `  ...`,
               `})`,

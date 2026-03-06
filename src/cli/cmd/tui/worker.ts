@@ -156,6 +156,6 @@ Rpc.listen(rpc)
 function getAuthorizationHeader(): string | undefined {
   const password = Flag.KILO_SERVER_PASSWORD
   if (!password) return undefined
-  const username = Flag.KILO_SERVER_USERNAME ?? "kilo" // kilocode_change
+  const username = Flag.KILO_SERVER_USERNAME ?? "spawnbot"
   return `Basic ${btoa(`${username}:${password}`)}`
 }

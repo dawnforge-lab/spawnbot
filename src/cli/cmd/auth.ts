@@ -260,7 +260,7 @@ export const AuthLoginCommand = cmd({
   describe: "log in to a provider",
   builder: (yargs) =>
     yargs.positional("url", {
-      describe: "kilo auth provider", // kilocode_change
+      describe: "auth provider URL",
       type: "string",
     }),
   async handler(args) {

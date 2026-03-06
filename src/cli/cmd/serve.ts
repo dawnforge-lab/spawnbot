@@ -14,7 +14,7 @@ export const ServeCommand = cmd({
     }
     const opts = await resolveNetworkOptions(args)
     const server = Server.listen(opts)
-    console.log(`kilo server listening on http://${server.hostname}:${server.port}`) // kilocode_change
+    console.log(`spawnbot server listening on http://${server.hostname}:${server.port}`)
     // kilocode_change start - graceful signal shutdown
     const abort = new AbortController()
     const shutdown = async () => {
