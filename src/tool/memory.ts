@@ -21,7 +21,7 @@ Importance: 0.0 (trivial) to 1.0 (critical). Default 0.5. Memories decay over ti
       .describe("Importance from 0.0 (trivial) to 1.0 (critical)"),
   }),
   async execute(params) {
-    const memory = Memory.store({
+    const memory = await Memory.store({
       content: params.content,
       category: params.category,
       importance: params.importance,
@@ -35,14 +35,14 @@ Importance: 0.0 (trivial) to 1.0 (critical). Default 0.5. Memories decay over ti
 })
 
 export const MemoryRecallTool = Tool.define("memory_recall", {
-  description: `Search long-term memories using full-text search. Returns memories ranked by relevance and importance. Use this to recall information from previous sessions.`,
+  description: `Search long-term memories using hybrid keyword + semantic search. Returns memories ranked by relevance and importance. Use this to recall information from previous sessions.`,
   parameters: z.object({
     query: z.string().describe("Search query (supports full-text search)"),
     category: z.string().optional().describe("Filter by category"),
     limit: z.coerce.number().default(10).describe("Maximum number of results"),
   }),
   async execute(params) {
-    const memories = Memory.recall({
+    const memories = await Memory.recall({
       query: params.query,
       limit: params.limit,
       category: params.category,

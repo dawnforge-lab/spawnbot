@@ -2,6 +2,7 @@ import { Database, eq, desc, sql, like } from "@/storage/db"
 import { MemoryTable } from "./memory.sql"
 import { Log } from "@/util/log"
 import { ulid } from "ulid"
+import { Embedding } from "./embedding"
 
 const log = Log.create({ service: "memory" })
 
@@ -44,32 +45,30 @@ export namespace Memory {
     timeAccessed: number | null
   }
 
-  /** Store a new memory */
-  export function store(input: StoreInput): Memory {
+  /** Store a new memory with optional embedding */
+  export async function store(input: StoreInput): Promise<Memory> {
     const id = ulid()
     const now = Date.now()
     const importance = Math.max(0, Math.min(1, input.importance ?? 0.5))
 
+    // Generate embedding (non-blocking, returns undefined if no API key)
+    const vector = await Embedding.embed(input.content)
+
     return Database.use((db) => {
-      db.insert(MemoryTable).values({
-        id,
-        content: input.content,
-        category: input.category ?? "general",
-        importance,
-        source: input.source ?? null,
-        time_created: now,
-        time_updated: now,
-        access_count: 0,
-      }).run()
+      const raw = (db as any).$client as import("bun:sqlite").Database
+
+      raw.run(
+        `INSERT INTO memory (id, content, category, importance, source, time_created, time_updated, access_count, embedding) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, input.content, input.category ?? "general", importance, input.source ?? null, now, now, 0, vector ? Embedding.toBlob(vector) : null],
+      )
 
       // Insert into FTS index
-      const raw = (db as any).$client as import("bun:sqlite").Database
       raw.run(
         `INSERT INTO ${FTS_TABLE}(id, content, category) VALUES (?, ?, ?)`,
         [id, input.content, input.category ?? "general"],
       )
 
-      log.info("stored memory", { id, category: input.category, importance })
+      log.info("stored memory", { id, category: input.category, importance, hasEmbedding: !!vector })
 
       return {
         id,
@@ -85,44 +84,112 @@ export namespace Memory {
     })
   }
 
-  /** Recall memories by FTS5 full-text search, ranked by relevance * importance */
-  export function recall(input: RecallInput): Memory[] {
+  /** Recall memories using hybrid search: FTS5 keyword matching + vector cosine similarity.
+   *  Results are merged and deduplicated, scored by combined rank. */
+  export async function recall(input: RecallInput): Promise<Memory[]> {
     const limit = input.limit ?? 10
+
+    // Run FTS5 and embedding queries in parallel
+    const queryVector = await Embedding.embed(input.query)
 
     return Database.use((db) => {
       const raw = (db as any).$client as import("bun:sqlite").Database
 
-      let query: string
-      let params: any[]
+      // ── FTS5 keyword search ──
+      let ftsRows: any[] = []
+      try {
+        let ftsQuery: string
+        let ftsParams: any[]
 
-      if (input.category) {
-        query = `
-          SELECT m.*, fts.rank
-          FROM ${FTS_TABLE} fts
-          JOIN memory m ON m.id = fts.id
-          WHERE ${FTS_TABLE} MATCH ?
-            AND m.category = ?
-          ORDER BY (fts.rank * m.importance) ASC
-          LIMIT ?
-        `
-        params = [input.query, input.category, limit]
-      } else {
-        query = `
-          SELECT m.*, fts.rank
-          FROM ${FTS_TABLE} fts
-          JOIN memory m ON m.id = fts.id
-          WHERE ${FTS_TABLE} MATCH ?
-          ORDER BY (fts.rank * m.importance) ASC
-          LIMIT ?
-        `
-        params = [input.query, limit]
+        if (input.category) {
+          ftsQuery = `
+            SELECT m.*, fts.rank
+            FROM ${FTS_TABLE} fts
+            JOIN memory m ON m.id = fts.id
+            WHERE ${FTS_TABLE} MATCH ?
+              AND m.category = ?
+            ORDER BY (fts.rank * m.importance) ASC
+            LIMIT ?
+          `
+          ftsParams = [input.query, input.category, limit * 2]
+        } else {
+          ftsQuery = `
+            SELECT m.*, fts.rank
+            FROM ${FTS_TABLE} fts
+            JOIN memory m ON m.id = fts.id
+            WHERE ${FTS_TABLE} MATCH ?
+            ORDER BY (fts.rank * m.importance) ASC
+            LIMIT ?
+          `
+          ftsParams = [input.query, limit * 2]
+        }
+
+        ftsRows = raw.prepare(ftsQuery).all(...ftsParams) as any[]
+      } catch {
+        // FTS5 MATCH can fail on malformed queries — fall through to vector search
       }
 
-      const rows = raw.prepare(query).all(...params) as any[]
+      // ── Vector similarity search ──
+      let vectorRows: Array<any & { _similarity: number }> = []
+      if (queryVector) {
+        let vecQuery: string
+        let vecParams: any[]
+
+        if (input.category) {
+          vecQuery = `SELECT * FROM memory WHERE embedding IS NOT NULL AND category = ? LIMIT 200`
+          vecParams = [input.category]
+        } else {
+          vecQuery = `SELECT * FROM memory WHERE embedding IS NOT NULL LIMIT 200`
+          vecParams = []
+        }
+
+        const candidates = raw.prepare(vecQuery).all(...vecParams) as any[]
+        for (const row of candidates) {
+          if (!row.embedding) continue
+          const vec = Embedding.fromBlob(row.embedding)
+          const similarity = Embedding.cosineSimilarity(queryVector, vec)
+          if (similarity > 0.3) {
+            vectorRows.push({ ...row, _similarity: similarity })
+          }
+        }
+
+        // Sort by similarity * importance descending
+        vectorRows.sort((a, b) => (b._similarity * b.importance) - (a._similarity * a.importance))
+        vectorRows = vectorRows.slice(0, limit * 2)
+      }
+
+      // ── Merge and deduplicate ──
+      const seen = new Set<string>()
+      const scored: Array<{ row: any; score: number }> = []
+
+      // FTS5 rank is negative (more negative = more relevant), normalize to 0-1
+      const maxFtsRank = ftsRows.length > 0 ? Math.abs(ftsRows[0].rank) : 1
+      for (const row of ftsRows) {
+        const ftsScore = (Math.abs(row.rank) / maxFtsRank) * row.importance
+        seen.add(row.id)
+        scored.push({ row, score: ftsScore })
+      }
+
+      for (const row of vectorRows) {
+        if (seen.has(row.id)) {
+          // Boost existing FTS result with vector similarity
+          const existing = scored.find((s) => s.row.id === row.id)
+          if (existing) {
+            existing.score = existing.score * 0.5 + row._similarity * row.importance * 0.5
+          }
+        } else {
+          seen.add(row.id)
+          scored.push({ row, score: row._similarity * row.importance })
+        }
+      }
+
+      // Sort by combined score descending, take top N
+      scored.sort((a, b) => b.score - a.score)
+      const results = scored.slice(0, limit)
 
       // Update access tracking
       const now = Date.now()
-      for (const row of rows) {
+      for (const { row } of results) {
         db.update(MemoryTable)
           .set({
             time_accessed: now,
@@ -132,7 +199,7 @@ export namespace Memory {
           .run()
       }
 
-      return rows.map(toMemory)
+      return results.map(({ row }) => toMemory(row))
     })
   }
 

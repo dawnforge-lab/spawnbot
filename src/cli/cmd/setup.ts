@@ -499,34 +499,32 @@ export const SetupCommand = cmd({
       }
     }
 
-    // ── Step 5: Voice Transcription (Whisper) ────────────────────────
-    let openaiKeyForWhisper = ""
+    // ── Step 5: OpenAI API (Whisper + Embeddings) ────────────────────
+    let openaiKeyForServices = ""
 
-    if (wantsTelegram) {
-      const wantsWhisper = unwrap(
+    const needsOpenAIKey = providerId !== "openai" // already have it if OpenAI is the main provider
+    if (needsOpenAIKey) {
+      const wantsOpenAI = unwrap(
         await prompts.confirm({
-          message: "Enable voice message transcription? (uses OpenAI Whisper API)",
+          message: "Add OpenAI API key? (enables voice transcription via Whisper + semantic memory via embeddings)",
           initialValue: true,
         }),
       )
 
-      if (wantsWhisper) {
-        // If they already chose OpenAI as their main provider, reuse the key
-        if (providerId === "openai") {
-          openaiKeyForWhisper = apiKey
-          prompts.log.success("Using your existing OpenAI API key for Whisper.")
-        } else {
-          openaiKeyForWhisper = unwrap(
-            await prompts.text({
-              message: "OpenAI API key for Whisper (voice transcription):",
-              placeholder: "sk-...",
-              validate: (v) => {
-                if (!v?.trim()) return "API key is required"
-              },
-            }),
-          ).trim()
-        }
+      if (wantsOpenAI) {
+        openaiKeyForServices = unwrap(
+          await prompts.text({
+            message: "OpenAI API key:",
+            placeholder: "sk-...",
+            validate: (v) => {
+              if (!v?.trim()) return "API key is required"
+            },
+          }),
+        ).trim()
       }
+    } else {
+      openaiKeyForServices = apiKey
+      prompts.log.success("OpenAI key will be used for Whisper transcription and memory embeddings.")
     }
 
     // ── Step 6: Cron jobs ─────────────────────────────────────────────
@@ -563,8 +561,8 @@ export const SetupCommand = cmd({
         }
       }
     }
-    if (openaiKeyForWhisper && providerId !== "openai") {
-      envLines.push(`OPENAI_API_KEY=${openaiKeyForWhisper}`)
+    if (openaiKeyForServices) {
+      envLines.push(`OPENAI_API_KEY=${openaiKeyForServices}`)
     }
     if (envLines.length > 0) {
       envLines.push("")
@@ -600,7 +598,7 @@ export const SetupCommand = cmd({
         `Provider: ${provider.name}`,
         `Location: ${baseDir}`,
         telegramToken ? `Telegram: @${botUsername}` : "Telegram: not configured",
-        openaiKeyForWhisper ? "Whisper: enabled" : "Whisper: not configured",
+        openaiKeyForServices ? "Whisper + Embeddings: enabled" : "Whisper + Embeddings: not configured",
         "",
         "Files created:",
         ...createdFiles.map((f) => `  ${f}`),
@@ -612,9 +610,10 @@ export const SetupCommand = cmd({
       prompts.log.warn(
         "No Telegram configured. Run `spawnbot setup` again or add TELEGRAM_BOT_TOKEN to .env.",
       )
-    } else if (!openaiKeyForWhisper) {
+    }
+    if (!openaiKeyForServices) {
       prompts.log.info(
-        "Voice transcription not enabled. Add OPENAI_API_KEY to .env to enable Whisper.",
+        "OpenAI API not configured. Add OPENAI_API_KEY to .env to enable Whisper transcription and semantic memory.",
       )
     }
 

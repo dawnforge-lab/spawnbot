@@ -91,7 +91,7 @@ export namespace LLM {
           ? lastUserMsg.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join(" ")
           : String(lastUserMsg.content))
       : ""
-    const memoryContext = buildMemoryContext(userText)
+    const memoryContext = await buildMemoryContext(userText)
     if (memoryContext) {
       system.push(memoryContext)
     }

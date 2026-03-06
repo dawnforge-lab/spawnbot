@@ -108,9 +108,12 @@ export namespace Database {
         time_created INTEGER NOT NULL,
         time_updated INTEGER NOT NULL,
         time_accessed INTEGER,
-        access_count INTEGER NOT NULL DEFAULT 0
+        access_count INTEGER NOT NULL DEFAULT 0,
+        embedding BLOB
       )
     `)
+    // Add embedding column to existing tables (migration-safe, no-op if already exists)
+    try { sqlite.run(`ALTER TABLE memory ADD COLUMN embedding BLOB`) } catch {}
     sqlite.run(`CREATE INDEX IF NOT EXISTS memory_category_idx ON memory(category)`)
     sqlite.run(`CREATE INDEX IF NOT EXISTS memory_importance_idx ON memory(importance)`)
     sqlite.run(`

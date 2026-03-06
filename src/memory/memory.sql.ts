@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core"
+import { sqliteTable, text, integer, real, index, blob } from "drizzle-orm/sqlite-core"
 import { Timestamps } from "@/storage/schema.sql"
 
 export const MemoryTable = sqliteTable(
@@ -12,6 +12,7 @@ export const MemoryTable = sqliteTable(
     ...Timestamps,
     time_accessed: integer(), // last time this memory was recalled
     access_count: integer().notNull().default(0),
+    embedding: blob({ mode: "buffer" }), // Float32Array vector for semantic search
   },
   (table) => [
     index("memory_category_idx").on(table.category),

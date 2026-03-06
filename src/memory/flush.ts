@@ -35,7 +35,7 @@ export async function flushFromCompaction(sessionID: string) {
 
   // Store discoveries as factual memories (highest value — learned knowledge)
   if (sections.discoveries) {
-    Memory.store({
+    await Memory.store({
       content: sections.discoveries,
       category: "factual",
       importance: 0.9,
@@ -46,7 +46,7 @@ export async function flushFromCompaction(sessionID: string) {
 
   // Store accomplished work as task memories
   if (sections.accomplished) {
-    Memory.store({
+    await Memory.store({
       content: sections.accomplished,
       category: "task",
       importance: 0.7,
@@ -57,7 +57,7 @@ export async function flushFromCompaction(sessionID: string) {
 
   // Store goals as task memories
   if (sections.goal) {
-    Memory.store({
+    await Memory.store({
       content: sections.goal,
       category: "task",
       importance: 0.8,
@@ -68,7 +68,7 @@ export async function flushFromCompaction(sessionID: string) {
 
   // Store instructions as preference memories
   if (sections.instructions) {
-    Memory.store({
+    await Memory.store({
       content: sections.instructions,
       category: "preference",
       importance: 0.85,

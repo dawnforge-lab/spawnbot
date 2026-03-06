@@ -14,14 +14,14 @@ const CHARS_PER_TOKEN = 4
  * Called before each turn with the user's input.
  * Returns undefined if no relevant memories found.
  */
-export function buildMemoryContext(
+export async function buildMemoryContext(
   userInput: string,
   tokenBudget: number = DEFAULT_TOKEN_BUDGET,
-): string | undefined {
+): Promise<string | undefined> {
   if (!userInput.trim()) return undefined
 
   const charBudget = tokenBudget * CHARS_PER_TOKEN
-  const memories = Memory.recall({ query: userInput, limit: 20 })
+  const memories = await Memory.recall({ query: userInput, limit: 20 })
 
   if (memories.length === 0) return undefined
 
