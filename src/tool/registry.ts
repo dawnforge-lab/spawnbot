@@ -28,6 +28,7 @@ import { LspTool } from "./lsp"
 import { Truncate } from "./truncation"
 
 import { ApplyPatchTool } from "./apply_patch"
+import { MemoryStoreTool, MemoryRecallTool, MemoryBrowseTool, MemoryDeleteTool } from "./memory"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
 
@@ -117,6 +118,10 @@ export namespace ToolRegistry {
       CodeSearchTool,
       SkillTool,
       ApplyPatchTool,
+      MemoryStoreTool,
+      MemoryRecallTool,
+      MemoryBrowseTool,
+      MemoryDeleteTool,
       ...(Flag.KILO_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.KILO_EXPERIMENTAL_PLAN_MODE && Flag.KILO_CLIENT === "cli" ? [PlanExitTool] : []),

@@ -23,7 +23,11 @@ Autonomous AI agent framework forked from **Kilo Code CLI** (MIT license). Adds 
 ## Current Status
 **Phase 1: Fork & Strip** — COMPLETE. Kilo Code CLI extracted, telemetry/gateway stubbed, imports rewritten, user-facing strings rebranded to spawnbot. CLI boots and shows help. Config files use `spawnbot.json`, config dirs use `.spawnbot/`, mDNS uses `spawnbot.local`. Legacy `kilo.json`/`opencode.json` still supported as fallback.
 
-**Phase 2: SOUL System** — COMPLETE. SOUL.yaml schema (identity, traits 1-10, voice, safety, goals, context), renderer with mtime caching, integrated into SystemPrompt.soul(). Searches .spawnbot/SOUL.yaml → config/SOUL.yaml → ~/.config/spawnbot/SOUL.yaml. 8 passing tests.
+**Phase 2: SOUL System** — COMPLETE. Simplified from YAML to Markdown:
+- SOUL.md: Agent identity/personality, inlined into system prompt (mtime-cached)
+- USER.md, GOALS.md, PLAYBOOK.md: Referenced in system prompt, agent reads/writes with tools
+- Only SOUL.md changes invalidate provider prompt cache; other docs are read on demand
+- Searches .spawnbot/ → ~/.config/spawnbot/. Falls back to built-in default.
 
 Next: Phase 3 (Memory system with FTS5 + importance decay).
 

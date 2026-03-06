@@ -97,6 +97,30 @@ export namespace Database {
       migrate(db, entries)
     }
 
+    // Initialize FTS5 virtual tables (not managed by Drizzle migrations)
+    sqlite.run(`
+      CREATE TABLE IF NOT EXISTS memory (
+        id TEXT PRIMARY KEY,
+        content TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'general',
+        importance REAL NOT NULL DEFAULT 0.5,
+        source TEXT,
+        time_created INTEGER NOT NULL,
+        time_updated INTEGER NOT NULL,
+        time_accessed INTEGER,
+        access_count INTEGER NOT NULL DEFAULT 0
+      )
+    `)
+    sqlite.run(`CREATE INDEX IF NOT EXISTS memory_category_idx ON memory(category)`)
+    sqlite.run(`CREATE INDEX IF NOT EXISTS memory_importance_idx ON memory(importance)`)
+    sqlite.run(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+        id UNINDEXED,
+        content,
+        category UNINDEXED
+      )
+    `)
+
     return db
   })
 

@@ -19,6 +19,7 @@ import type { Agent } from "@/agent/agent"
 import type { MessageV2 } from "./message-v2"
 import { Plugin } from "@/plugin"
 import { SystemPrompt } from "./system"
+import { buildMemoryContext } from "@/memory/context"
 import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
@@ -88,6 +89,18 @@ export namespace LLM {
         .filter((x) => x)
         .join("\n"),
     )
+
+    // Inject relevant memories as a separate system section (doesn't invalidate prompt cache)
+    const lastUserMsg = [...input.messages].reverse().find((m) => m.role === "user")
+    const userText = lastUserMsg
+      ? (Array.isArray(lastUserMsg.content)
+          ? lastUserMsg.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join(" ")
+          : String(lastUserMsg.content))
+      : ""
+    const memoryContext = buildMemoryContext(userText)
+    if (memoryContext) {
+      system.push(memoryContext)
+    }
 
     const header = system[0]
     await Plugin.trigger(
