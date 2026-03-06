@@ -499,7 +499,37 @@ export const SetupCommand = cmd({
       }
     }
 
-    // ── Step 5: Cron jobs ─────────────────────────────────────────────
+    // ── Step 5: Voice Transcription (Whisper) ────────────────────────
+    let openaiKeyForWhisper = ""
+
+    if (wantsTelegram) {
+      const wantsWhisper = unwrap(
+        await prompts.confirm({
+          message: "Enable voice message transcription? (uses OpenAI Whisper API)",
+          initialValue: true,
+        }),
+      )
+
+      if (wantsWhisper) {
+        // If they already chose OpenAI as their main provider, reuse the key
+        if (providerId === "openai") {
+          openaiKeyForWhisper = apiKey
+          prompts.log.success("Using your existing OpenAI API key for Whisper.")
+        } else {
+          openaiKeyForWhisper = unwrap(
+            await prompts.text({
+              message: "OpenAI API key for Whisper (voice transcription):",
+              placeholder: "sk-...",
+              validate: (v) => {
+                if (!v?.trim()) return "API key is required"
+              },
+            }),
+          ).trim()
+        }
+      }
+    }
+
+    // ── Step 6: Cron jobs ─────────────────────────────────────────────
     const wantsCrons = unwrap(
       await prompts.confirm({
         message: "Create a CRONS.yaml template for scheduled tasks?",
@@ -520,17 +550,23 @@ export const SetupCommand = cmd({
     fs.writeFileSync(path.join(baseDir, "PLAYBOOK.md"), files.playbook)
 
     // .env
+    const envLines: string[] = []
     if (telegramToken) {
-      const envLines = [
+      envLines.push(
         `TELEGRAM_BOT_TOKEN=${telegramToken}`,
         `TELEGRAM_OWNER_ID=${telegramOwner}`,
-      ]
+      )
       if (ngrokToken) {
         envLines.push(`NGROK_AUTHTOKEN=${ngrokToken}`)
         if (ngrokDomain) {
           envLines.push(`NGROK_DOMAIN=${ngrokDomain}`)
         }
       }
+    }
+    if (openaiKeyForWhisper && providerId !== "openai") {
+      envLines.push(`OPENAI_API_KEY=${openaiKeyForWhisper}`)
+    }
+    if (envLines.length > 0) {
       envLines.push("")
       fs.writeFileSync(path.join(baseDir, ".env"), envLines.join(EOL))
     }
@@ -555,7 +591,7 @@ export const SetupCommand = cmd({
 
     // ── Summary ───────────────────────────────────────────────────────
     const createdFiles = ["SOUL.md", "USER.md", "GOALS.md", "PLAYBOOK.md"]
-    if (telegramToken) createdFiles.push(".env")
+    if (envLines.length > 0) createdFiles.push(".env")
     if (wantsCrons) createdFiles.push("CRONS.yaml")
 
     prompts.note(
@@ -564,6 +600,7 @@ export const SetupCommand = cmd({
         `Provider: ${provider.name}`,
         `Location: ${baseDir}`,
         telegramToken ? `Telegram: @${botUsername}` : "Telegram: not configured",
+        openaiKeyForWhisper ? "Whisper: enabled" : "Whisper: not configured",
         "",
         "Files created:",
         ...createdFiles.map((f) => `  ${f}`),
@@ -574,6 +611,10 @@ export const SetupCommand = cmd({
     if (!telegramToken) {
       prompts.log.warn(
         "No Telegram configured. Run `spawnbot setup` again or add TELEGRAM_BOT_TOKEN to .env.",
+      )
+    } else if (!openaiKeyForWhisper) {
+      prompts.log.info(
+        "Voice transcription not enabled. Add OPENAI_API_KEY to .env to enable Whisper.",
       )
     }
 

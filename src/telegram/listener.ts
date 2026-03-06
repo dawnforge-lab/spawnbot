@@ -5,6 +5,7 @@ import { ulid } from "ulid"
 import fs from "fs"
 import path from "path"
 import { Global } from "@/global"
+import { Transcribe } from "./transcribe"
 
 const log = Log.create({ service: "telegram.listener" })
 
@@ -197,9 +198,20 @@ export namespace TelegramListener {
       const voice = ctx.message.voice
       const filePath = await downloadFile(voice.file_id, `voice_${voice.file_id}.ogg`)
 
-      const content = filePath
-        ? `[Voice message (${voice.duration}s) saved to ${filePath} — analyze this audio file]`
-        : "[Voice message received but download failed]"
+      // Attempt Whisper transcription if file was downloaded
+      let transcript: string | undefined
+      if (filePath) {
+        transcript = await Transcribe.audio(filePath)
+      }
+
+      let content: string
+      if (transcript) {
+        content = `[Voice message (${voice.duration}s) transcribed]:\n\n${transcript}`
+      } else if (filePath) {
+        content = `[Voice message (${voice.duration}s) saved to ${filePath} — transcription unavailable, analyze this audio file]`
+      } else {
+        content = "[Voice message received but download failed]"
+      }
 
       InputQueue.enqueue({
         id: ulid(),
@@ -215,6 +227,7 @@ export namespace TelegramListener {
           fileType: "voice",
           mime: voice.mime_type ?? "audio/ogg",
           duration: voice.duration,
+          transcript,
         },
         timestamp: Date.now(),
       })
