@@ -80,6 +80,8 @@ export const SetupCommand = cmd({
     }
 
     let telegramOwner: string | symbol = ""
+    let ngrokToken: string | symbol = ""
+    let ngrokDomain: string | symbol = ""
     if (telegramToken?.trim()) {
       telegramOwner = await prompts.text({
         message: "Your Telegram Chat ID (for owner verification)",
@@ -92,6 +94,27 @@ export const SetupCommand = cmd({
       if (prompts.isCancel(telegramOwner)) {
         prompts.cancel("Setup cancelled.")
         process.exit(0)
+      }
+
+      // ngrok for webhook mode
+      ngrokToken = await prompts.text({
+        message: "ngrok authtoken (for webhook mode, skip for long polling)",
+        placeholder: "skip to use long polling",
+      })
+      if (prompts.isCancel(ngrokToken)) {
+        prompts.cancel("Setup cancelled.")
+        process.exit(0)
+      }
+
+      if ((ngrokToken as string)?.trim()) {
+        ngrokDomain = await prompts.text({
+          message: "ngrok fixed domain (optional, requires paid plan)",
+          placeholder: "skip for random URL",
+        })
+        if (prompts.isCancel(ngrokDomain)) {
+          prompts.cancel("Setup cancelled.")
+          process.exit(0)
+        }
       }
     }
 
@@ -127,8 +150,14 @@ export const SetupCommand = cmd({
       const envLines = [
         `TELEGRAM_BOT_TOKEN=${telegramToken.trim()}`,
         `TELEGRAM_OWNER_ID=${(telegramOwner as string).trim()}`,
-        "",
       ]
+      if ((ngrokToken as string)?.trim()) {
+        envLines.push(`NGROK_AUTHTOKEN=${(ngrokToken as string).trim()}`)
+        if ((ngrokDomain as string)?.trim()) {
+          envLines.push(`NGROK_DOMAIN=${(ngrokDomain as string).trim()}`)
+        }
+      }
+      envLines.push("")
       fs.writeFileSync(envPath, envLines.join(EOL))
     }
 

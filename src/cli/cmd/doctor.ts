@@ -69,6 +69,13 @@ export const DoctorCommand = cmd({
         },
       },
       {
+        name: "NGROK_AUTHTOKEN",
+        run: () => {
+          if (process.env.NGROK_AUTHTOKEN) return undefined
+          return "Not set — Telegram will use long polling instead of webhooks (will be loaded from .env at runtime)"
+        },
+      },
+      {
         name: "Data directory",
         run: () => {
           return fs.existsSync(Global.Path.data)

@@ -6,6 +6,7 @@ import { CronScheduler } from "@/autonomy/cron"
 import { PollerManager } from "@/autonomy/poller"
 import { IdleLoop } from "@/autonomy/idle"
 import { startDecay, stopDecay } from "@/autonomy/decay"
+import { Tunnel } from "@/tunnel"
 import { deliverResponse } from "@/input/response"
 import { loadEnv, loadCrons, wirePollerState } from "./config"
 import { Session } from "@/session"
@@ -18,18 +19,38 @@ const log = Log.create({ service: "daemon" })
 export namespace Daemon {
   let sessionID: string | undefined
 
+  export interface StartOptions {
+    /** Local server port (needed for ngrok forwarding) */
+    serverPort: number
+  }
+
   /**
    * Start all daemon subsystems:
    * 1. Load .env for credentials
-   * 2. Create a daemon session for the agent
-   * 3. Wire input router → session prompt
-   * 4. Start Telegram listener
-   * 5. Start autonomy modules (cron, idle, decay)
-   * 6. Start input router loop
+   * 2. Start ngrok tunnel if configured
+   * 3. Create a daemon session for the agent
+   * 4. Wire input router → session prompt
+   * 5. Start Telegram (webhook or polling)
+   * 6. Start autonomy modules (cron, idle, decay)
+   * 7. Start input router loop
    */
-  export async function start() {
+  export async function start(opts: StartOptions) {
     // Load agent-specific .env
     loadEnv()
+
+    // Start ngrok tunnel if authtoken is available
+    let webhookUrl: string | undefined
+    const ngrokToken = process.env.NGROK_AUTHTOKEN
+    const ngrokDomain = process.env.NGROK_DOMAIN
+
+    if (ngrokToken) {
+      webhookUrl = await Tunnel.start({
+        authtoken: ngrokToken,
+        port: opts.serverPort,
+        domain: ngrokDomain,
+      })
+      log.info("ngrok tunnel established", { url: webhookUrl })
+    }
 
     // Create a persistent session for daemon processing
     // Auto-approve all permissions (daemon runs autonomously)
@@ -69,8 +90,12 @@ export namespace Daemon {
         token: telegramToken,
         ownerChatId: ownerId,
         allowedUsers: ownerId ? [ownerId] : [],
+        webhookUrl,
       })
-      log.info("telegram started", { ownerChatId: ownerId })
+      log.info("telegram started", {
+        mode: TelegramListener.getMode(),
+        ownerChatId: ownerId,
+      })
     } else {
       log.warn("TELEGRAM_BOT_TOKEN not set, skipping Telegram")
     }
@@ -93,7 +118,11 @@ export namespace Daemon {
       log.error("input router crashed", { error: err })
     })
 
-    log.info("daemon started")
+    log.info("daemon started", {
+      telegram: !!telegramToken,
+      ngrok: !!webhookUrl,
+      crons: crons.length,
+    })
   }
 
   /** Stop all daemon subsystems */
@@ -106,6 +135,7 @@ export namespace Daemon {
     IdleLoop.stop()
     stopDecay()
     await TelegramListener.stop()
+    await Tunnel.stop()
 
     log.info("daemon stopped")
   }

@@ -75,6 +75,7 @@
     "@kilocode/plugin": "workspace:*",
     "@kilocode/sdk": "workspace:*",
     "@modelcontextprotocol/sdk": "1.25.2",
+    "@ngrok/ngrok": "^1.7.0",
     "@octokit/graphql": "9.0.2",
     "@octokit/rest": "22.0.0",
     "@openauthjs/openauth": "0.0.0-20250322224806",

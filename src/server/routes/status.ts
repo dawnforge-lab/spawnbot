@@ -7,6 +7,7 @@ import { PollerManager } from "@/autonomy/poller"
 import { IdleLoop } from "@/autonomy/idle"
 import { Memory } from "@/memory"
 import { Installation } from "@/installation"
+import { Tunnel } from "@/tunnel"
 
 const startedAt = Date.now()
 
@@ -49,6 +50,10 @@ export function StatusRoutes() {
                   idle: z.object({
                     running: z.boolean(),
                   }),
+                  tunnel: z.object({
+                    running: z.boolean(),
+                    url: z.string().nullable(),
+                  }),
                   memory: z.object({
                     total: z.number(),
                     byCategory: z.record(z.string(), z.number()),
@@ -79,6 +84,10 @@ export function StatusRoutes() {
         pollers: PollerManager.list(),
         idle: {
           running: IdleLoop.isRunning(),
+        },
+        tunnel: {
+          running: Tunnel.isRunning(),
+          url: Tunnel.url() ?? null,
         },
         memory: memStats,
       })

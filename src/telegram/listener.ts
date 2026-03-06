@@ -1,4 +1,4 @@
-import { Bot, type Context } from "grammy"
+import { Bot, webhookCallback, type Context } from "grammy"
 import { InputQueue } from "@/input/queue"
 import { Log } from "@/util/log"
 import { ulid } from "ulid"
@@ -9,11 +9,16 @@ export namespace TelegramListener {
   let bot: Bot | undefined
   let allowedUsers: Set<number> = new Set()
   let ownerChatId: number | undefined
+  let mode: "polling" | "webhook" = "polling"
 
   export interface Config {
     token: string
     allowedUsers?: number[] // Telegram user IDs
     ownerChatId?: number // Primary chat ID for responses
+    /** Webhook URL — if set, uses webhook mode instead of long polling */
+    webhookUrl?: string
+    /** Secret token for webhook verification */
+    webhookSecret?: string
   }
 
   export function start(config: Config) {
@@ -25,6 +30,46 @@ export namespace TelegramListener {
     bot = new Bot(config.token)
     allowedUsers = new Set(config.allowedUsers ?? [])
     ownerChatId = config.ownerChatId
+
+    registerHandlers()
+
+    bot.catch((err) => {
+      log.error("telegram bot error", { error: err })
+    })
+
+    if (config.webhookUrl) {
+      mode = "webhook"
+      // Set webhook with Telegram API
+      const secretPath = config.webhookSecret ?? config.token.split(":")[1]
+      const fullUrl = `${config.webhookUrl}/telegram/${secretPath}`
+      bot.api.setWebhook(fullUrl).then(() => {
+        log.info("telegram webhook set", { url: fullUrl })
+      }).catch((err) => {
+        log.error("failed to set webhook", { error: err })
+      })
+    } else {
+      mode = "polling"
+      bot.start({
+        onStart: () => {
+          log.info("telegram long polling started", {
+            allowedUsers: [...allowedUsers],
+          })
+        },
+      })
+    }
+  }
+
+  /**
+   * Get the Hono-compatible webhook handler.
+   * Mount this at /telegram/:secret on your Hono app.
+   */
+  export function webhookHandler() {
+    if (!bot) return undefined
+    return webhookCallback(bot, "hono")
+  }
+
+  function registerHandlers() {
+    if (!bot) return
 
     bot.on("message:text", async (ctx) => {
       if (!isAllowed(ctx)) {
@@ -93,23 +138,17 @@ export namespace TelegramListener {
         timestamp: Date.now(),
       })
     })
-
-    bot.catch((err) => {
-      log.error("telegram bot error", { error: err })
-    })
-
-    bot.start({
-      onStart: () => {
-        log.info("telegram listener started", {
-          allowedUsers: [...allowedUsers],
-        })
-      },
-    })
   }
 
   export async function stop() {
     if (bot) {
-      await bot.stop()
+      if (mode === "webhook") {
+        await bot.api.deleteWebhook().catch((err) => {
+          log.warn("failed to delete webhook", { error: err })
+        })
+      } else {
+        await bot.stop()
+      }
       bot = undefined
       log.info("telegram listener stopped")
     }
@@ -183,6 +222,10 @@ export namespace TelegramListener {
 
   export function getOwnerChatId() {
     return ownerChatId
+  }
+
+  export function getMode() {
+    return mode
   }
 
   function isAllowed(ctx: Context): boolean {

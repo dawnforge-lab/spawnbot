@@ -17,15 +17,27 @@ export const DaemonCommand = cmd({
   handler: async (args) => {
     const opts = await resolveNetworkOptions(args)
     const server = Server.listen(opts)
-    console.log(`spawnbot daemon listening on http://${server.hostname}:${server.port}`)
+    const port = server.port
+    console.log(`spawnbot daemon listening on http://${server.hostname}:${port}`)
 
     // Provide Instance context (required for Session, tools, etc.)
     await Instance.provide({
       directory: args.directory as string,
       init: InstanceBootstrap,
       async fn() {
-        // Start the daemon (Telegram, cron, idle loop, input router)
-        await Daemon.start()
+        // Start the daemon (ngrok, Telegram, cron, idle loop, input router)
+        await Daemon.start({ serverPort: port })
+
+        // Mount Telegram webhook route on the server
+        const { TelegramListener } = await import("../../telegram/listener")
+        const handler = TelegramListener.webhookHandler()
+        if (handler) {
+          const { Hono } = await import("hono")
+          const webhookApp = new Hono()
+          webhookApp.post("/telegram/:secret", (c) => handler(c))
+          Server.App().route("/", webhookApp)
+          console.log(`telegram webhook mode active`)
+        }
 
         // Graceful shutdown
         const abort = new AbortController()
