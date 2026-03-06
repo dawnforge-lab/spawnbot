@@ -10,8 +10,8 @@ import { useSync } from "@tui/context/sync"
 import { useToast } from "@tui/ui/toast"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import type { Organization } from "@kilocode/kilo-gateway"
-const getOrganizationOptions = () => []
-const getDefaultOrganizationSelection = () => undefined
+const getOrganizationOptions = (..._args: any[]) => []
+const getDefaultOrganizationSelection = (..._args: any[]) => undefined
 
 // These types are OpenCode-internal and imported at runtime
 type UseSDK = any

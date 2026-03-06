@@ -17,7 +17,7 @@ export const DaemonCommand = cmd({
   handler: async (args) => {
     const opts = await resolveNetworkOptions(args)
     const server = Server.listen(opts)
-    const port = server.port
+    const port = server.port!
     console.log(`spawnbot daemon listening on http://${server.hostname}:${port}`)
 
     // Provide Instance context (required for Session, tools, etc.)

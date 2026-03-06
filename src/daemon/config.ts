@@ -52,7 +52,13 @@ export function loadCrons(): CronScheduler.Job[] {
 
   for (const cronPath of candidates) {
     const content = fs.readFileSync(cronPath, "utf-8")
-    const parsed = yaml.load(content)
+    let parsed: unknown
+    try {
+      parsed = yaml.load(content)
+    } catch (err) {
+      log.error("failed to parse CRONS.yaml", { path: cronPath, error: String(err) })
+      return []
+    }
     if (!Array.isArray(parsed)) {
       log.warn("CRONS.yaml is not an array, skipping", { path: cronPath })
       return []

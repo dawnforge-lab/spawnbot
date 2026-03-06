@@ -161,25 +161,23 @@ export namespace Memory {
   /** Delete a memory by ID */
   export function remove(id: string): boolean {
     return Database.use((db) => {
-      const result = db.delete(MemoryTable).where(eq(MemoryTable.id, id)).run()
-
-      // Remove from FTS index
       const raw = (db as any).$client as import("bun:sqlite").Database
       raw.run(`DELETE FROM ${FTS_TABLE} WHERE id = ?`, [id])
-
+      const result = raw.run(`DELETE FROM memory WHERE id = ?`, [id])
       log.info("deleted memory", { id })
       return result.changes > 0
     })
   }
 
   /** Apply importance decay to all memories. Importance floors at minImportance — memories are never deleted by decay. */
-  export function decay(factor: number = 0.995, minImportance: number = 0.05) {
+  export function decay(factor: number = 0.995, minImportance: number = 0.05): number {
     return Database.use((db) => {
-      db.update(MemoryTable)
-        .set({
-          importance: sql`max(importance * ${factor}, ${minImportance})`,
-        })
-        .run()
+      const raw = (db as any).$client as import("bun:sqlite").Database
+      const result = raw.run(
+        `UPDATE memory SET importance = max(importance * ?, ?) WHERE importance > ?`,
+        [factor, minImportance, minImportance],
+      )
+      return result.changes
     })
   }
 

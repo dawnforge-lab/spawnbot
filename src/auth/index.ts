@@ -68,7 +68,7 @@ export namespace Auth {
 
     // kilocode_change start - Track logout and reset telemetry identity for Kilo
     if (key === "kilo") {
-      await Telemetry.updateIdentity(null)
+      await Telemetry.updateIdentity("")
     }
     Telemetry.trackAuthLogout(key)
     // kilocode_change end

@@ -7,7 +7,7 @@
 
 import { DialogSelect } from "@tui/ui/dialog-select"
 import type { Organization } from "@kilocode/kilo-gateway"
-const getOrganizationOptions = () => []
+const getOrganizationOptions = (..._args: any[]) => []
 
 interface DialogKiloTeamSelectProps {
   organizations: Organization[]

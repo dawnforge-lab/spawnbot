@@ -168,7 +168,7 @@ export namespace LLM {
     // kilocode_change start - resolve project ID and machine ID for kilo provider
     const isKilo = input.model.api.npm === "@kilocode/kilo-gateway"
     const kiloProjectId = isKilo ? await getKiloProjectId().catch(() => undefined) : undefined
-    const machineId = isKilo ? await Identity.getMachineId().catch(() => undefined) : undefined
+    const machineId = isKilo ? Identity.machineId() : undefined
     // kilocode_change end
 
     const maxOutputTokens =

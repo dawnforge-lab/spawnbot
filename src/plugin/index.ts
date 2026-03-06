@@ -23,7 +23,7 @@ export namespace Plugin {
   // Built-in plugins that are directly imported (not installed from npm)
   // kilocode_change start
   const INTERNAL_PLUGINS: PluginInstance[] = [
-    KiloAuthPlugin,
+    KiloAuthPlugin as unknown as PluginInstance,
     CodexAuthPlugin,
     CopilotAuthPlugin,
     GitlabAuthPlugin as unknown as PluginInstance,

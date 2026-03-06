@@ -13,13 +13,13 @@ export const TelegramSendTool = Tool.define("tg_send", {
     if (messageId === undefined) {
       return {
         title: "Send failed",
-        metadata: { sent: false },
+        metadata: { messageId: undefined as number | undefined, sent: false },
         output: "Failed to send message. Bot may not be running or no chat ID configured.",
       }
     }
     return {
       title: "Message sent",
-      metadata: { messageId, sent: true },
+      metadata: { messageId: messageId as number | undefined, sent: true },
       output: `Message sent (id: ${messageId})`,
     }
   },
@@ -37,13 +37,13 @@ export const TelegramPhotoTool = Tool.define("tg_photo", {
     if (messageId === undefined) {
       return {
         title: "Photo send failed",
-        metadata: { sent: false },
+        metadata: { messageId: undefined as number | undefined, sent: false },
         output: "Failed to send photo.",
       }
     }
     return {
       title: "Photo sent",
-      metadata: { messageId, sent: true },
+      metadata: { messageId: messageId as number | undefined, sent: true },
       output: `Photo sent (id: ${messageId})`,
     }
   },

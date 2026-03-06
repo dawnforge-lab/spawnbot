@@ -1291,6 +1291,7 @@ export namespace Config {
   export type Info = z.output<typeof Info>
 
   export const global = lazy(async () => {
+    // @ts-expect-error — pipe(mergeDeep(...)) chain exceeds TypeScript instantiation depth
     let result: Info = pipe(
       {},
       mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),

@@ -42,7 +42,7 @@ import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { registerKiloCommands } from "@/kilocode/kilo-commands" // kilocode_change
 // spawnbot: gateway TUI deps removed
-const initializeTUIDependencies = async () => {} // kilocode_change
+const initializeTUIDependencies = async (_deps?: any) => {} // kilocode_change
 import { TuiConfigProvider } from "./context/tui-config"
 import { TuiConfig } from "@/config/tui"
 

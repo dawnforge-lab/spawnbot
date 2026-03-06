@@ -1,5 +1,7 @@
 // Stub replacing @kilocode/kilo-gateway — strips Kilo cloud features
 
+import { Hono } from "hono"
+
 export const KILO_API_BASE = ""
 export const KILO_OPENROUTER_BASE = ""
 export const ENV_FEATURE = "SPAWNBOT_FEATURE"
@@ -13,22 +15,22 @@ export async function migrateLegacyKiloAuth(
   _set: (auth: any) => Promise<void>,
 ) {}
 
-export function fetchDefaultModel() {
+export function fetchDefaultModel(_token?: string, _organizationId?: string) {
   return undefined
 }
 
-export function fetchKiloModels() {
+export function fetchKiloModels(_options?: any) {
   return []
 }
 
-export function createKilo(_opts: any) {
-  throw new Error("Kilo gateway provider not available in spawnbot")
-}
-
-export function createKiloRoutes() {
+export function createKilo(_opts: any): any {
   return null
 }
 
-export async function KiloAuthPlugin() {
+export function createKiloRoutes(_opts?: any) {
+  return new Hono()
+}
+
+export async function KiloAuthPlugin(): Promise<any> {
   return undefined
 }

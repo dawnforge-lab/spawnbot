@@ -72,7 +72,7 @@ export namespace CronScheduler {
   export function list(): { name: string; schedule: string; nextRun: string | null }[] {
     return [...jobs.entries()].map(([name, cron]) => ({
       name,
-      schedule: cron.getPattern(),
+      schedule: cron.getPattern() ?? "",
       nextRun: cron.nextRun()?.toISOString() ?? null,
     }))
   }

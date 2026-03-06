@@ -61,7 +61,7 @@ export const SetupCommand = cmd({
       placeholder: "Spawnbot",
       defaultValue: "Spawnbot",
       validate: (v) => {
-        if (!v.trim()) return "Name is required"
+        if (!v?.trim()) return "Name is required"
       },
     })
     if (prompts.isCancel(name)) {
@@ -87,8 +87,8 @@ export const SetupCommand = cmd({
         message: "Your Telegram Chat ID (for owner verification)",
         placeholder: "e.g. 123456789",
         validate: (v) => {
-          if (!v.trim()) return "Chat ID is required when using Telegram"
-          if (!/^\d+$/.test(v.trim())) return "Chat ID must be a number"
+          if (!v?.trim()) return "Chat ID is required when using Telegram"
+          if (!/^\d+$/.test(v!.trim())) return "Chat ID must be a number"
         },
       })
       if (prompts.isCancel(telegramOwner)) {

@@ -1590,7 +1590,7 @@ export namespace ACP {
 
     // kilocode_change start
     const freeModel = await fetchDefaultModel()
-    const parsed = Provider.parseModel(freeModel)
+    const parsed = Provider.parseModel(freeModel ?? "")
     return { providerID: "kilo", modelID: parsed.modelID }
     // kilocode_change end
   }
