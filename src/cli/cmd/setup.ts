@@ -571,7 +571,35 @@ export const SetupCommand = cmd({
       prompts.log.info("Only manual mode available on this platform.")
     }
 
-    // ── Step 8: Agent model configuration ──────────────────────────────
+    // ── Step 8: Optional skills ─────────────────────────────────────────
+    prompts.log.step("Step 8: Install optional skills")
+    prompts.log.info(
+      "Skills teach your agent how to use external services. It will create its own tools when needed.",
+    )
+
+    const OPTIONAL_SKILLS = [
+      { value: "image-generation", label: "Image Generation (fal.ai)", hint: "generate images via fal.ai API" },
+      { value: "text-to-speech", label: "Text-to-Speech (Cartesia)", hint: "generate voice audio via Cartesia Sonic 3" },
+      { value: "gmail", label: "Gmail (IMAP/SMTP)", hint: "read, send, reply, search email" },
+      { value: "google-calendar", label: "Google Calendar (CalDAV)", hint: "manage calendar events" },
+      { value: "x-twitter", label: "X/Twitter (tweepy)", hint: "post tweets, check mentions, DMs" },
+      { value: "reddit", label: "Reddit (PRAW)", hint: "post, comment, search subreddits" },
+      { value: "moltbook", label: "Moltbook", hint: "social network for AI agents" },
+    ] as const
+
+    const selectedSkills = unwrap(
+      await prompts.multiselect({
+        message: "Which skills should your agent have? (space to toggle, enter to confirm)",
+        options: OPTIONAL_SKILLS.map((s) => ({
+          value: s.value,
+          label: s.label,
+          hint: s.hint,
+        })),
+        required: false,
+      }),
+    ) as string[]
+
+    // ── Step 9: Agent model configuration ──────────────────────────────
     interface AgentModelConfig {
       [agentName: string]: { providerID: string; modelID: string }
     }
@@ -685,6 +713,21 @@ export const SetupCommand = cmd({
       )
     }
 
+    // Copy selected skills from builtin to .spawnbot/skills/
+    if (selectedSkills.length > 0) {
+      const builtinDir = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "skill", "builtin")
+      const skillsDir = path.join(baseDir, "skills")
+      for (const skillName of selectedSkills) {
+        const srcDir = path.join(builtinDir, skillName)
+        const destDir = path.join(skillsDir, skillName)
+        fs.mkdirSync(destDir, { recursive: true })
+        const skillFile = path.join(srcDir, "SKILL.md")
+        if (fs.existsSync(skillFile)) {
+          fs.copyFileSync(skillFile, path.join(destDir, "SKILL.md"))
+        }
+      }
+    }
+
     // spawnbot.json — config with model, agent overrides, and schema
     const config: Record<string, any> = {
       $schema: "https://opencode.ai/config.json",
@@ -724,6 +767,9 @@ export const SetupCommand = cmd({
         `Location: ${baseDir}`,
         telegramToken ? `Telegram: @${botUsername}` : "Telegram: not configured",
         openaiKeyForServices ? "Whisper + Embeddings: enabled" : "Whisper + Embeddings: not configured",
+        selectedSkills.length > 0
+          ? `Skills: ${selectedSkills.join(", ")}`
+          : "Skills: none (built-in defaults only)",
         Object.keys(agentModels).length > 0
           ? `Agent models: ${Object.entries(agentModels).map(([k, v]) => `${k}=${v.modelID}`).join(", ")}`
           : "Agent models: all using default",
