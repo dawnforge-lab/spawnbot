@@ -32,7 +32,11 @@ export namespace Daemon {
     loadEnv()
 
     // Create a persistent session for daemon processing
-    const session = await Session.create({ title: "Daemon session" })
+    // Auto-approve all permissions (daemon runs autonomously)
+    const session = await Session.create({
+      title: "Daemon session",
+      permission: [{ permission: "*", pattern: "*", action: "allow" }],
+    })
     sessionID = session.id
     log.info("daemon session created", { sessionID })
 
@@ -84,8 +88,10 @@ export namespace Daemon {
     IdleLoop.start()
     startDecay()
 
-    // Start the input router loop (blocks until stopped)
-    InputRouter.start()
+    // Start the input router loop in background (it blocks until stopped)
+    InputRouter.start().catch((err) => {
+      log.error("input router crashed", { error: err })
+    })
 
     log.info("daemon started")
   }
