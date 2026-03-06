@@ -11,6 +11,13 @@ import { createAnthropic } from "@ai-sdk/anthropic"
 import { createOpenAI } from "@ai-sdk/openai"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { createXai } from "@ai-sdk/xai"
+import { createMistral } from "@ai-sdk/mistral"
+import { createGroq } from "@ai-sdk/groq"
+import { createDeepInfra } from "@ai-sdk/deepinfra"
+import { createCerebras } from "@ai-sdk/cerebras"
+import { createCohere } from "@ai-sdk/cohere"
+import { createTogetherAI } from "@ai-sdk/togetherai"
+import { createPerplexity } from "@ai-sdk/perplexity"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import { z } from "zod"
@@ -22,21 +29,36 @@ interface SetupProvider {
   envHint: string
   defaultModel: string
   baseURL?: string // for openai-compatible providers
+  category: string
 }
 
 const PROVIDERS: SetupProvider[] = [
-  // Tier 1: dedicated SDK
-  { id: "anthropic", name: "Anthropic (Claude)", envHint: "ANTHROPIC_API_KEY", defaultModel: "claude-sonnet-4-20250514" },
-  { id: "openai", name: "OpenAI (GPT)", envHint: "OPENAI_API_KEY", defaultModel: "gpt-4o" },
-  { id: "google", name: "Google (Gemini)", envHint: "GOOGLE_GENERATIVE_AI_API_KEY", defaultModel: "gemini-2.0-flash" },
-  { id: "xai", name: "xAI (Grok)", envHint: "XAI_API_KEY", defaultModel: "grok-3-mini-fast" },
-  { id: "deepseek", name: "DeepSeek", envHint: "DEEPSEEK_API_KEY", defaultModel: "deepseek-chat", baseURL: "https://api.deepseek.com/v1" },
-  // Tier 2: regional / specialized
-  { id: "moonshot", name: "Moonshot (Kimi)", envHint: "MOONSHOT_API_KEY", defaultModel: "kimi-k2-0711-preview", baseURL: "https://api.moonshot.cn/v1" },
-  { id: "alibaba-cn", name: "Alibaba (Qwen / DashScope)", envHint: "DASHSCOPE_API_KEY", defaultModel: "qwen-plus", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
-  { id: "zai", name: "z.ai (ZhipuAI / GLM)", envHint: "ZHIPU_API_KEY", defaultModel: "glm-4-flash", baseURL: "https://open.bigmodel.cn/api/paas/v4" },
-  // Aggregator
-  { id: "openrouter", name: "OpenRouter (multi-provider)", envHint: "OPENROUTER_API_KEY", defaultModel: "anthropic/claude-sonnet-4" },
+  // ── Major cloud providers ──
+  { id: "anthropic", name: "Anthropic (Claude)", envHint: "ANTHROPIC_API_KEY", defaultModel: "claude-sonnet-4-20250514", category: "Major" },
+  { id: "openai", name: "OpenAI (GPT)", envHint: "OPENAI_API_KEY", defaultModel: "gpt-4o", category: "Major" },
+  { id: "google", name: "Google (Gemini)", envHint: "GOOGLE_GENERATIVE_AI_API_KEY", defaultModel: "gemini-2.0-flash", category: "Major" },
+  { id: "xai", name: "xAI (Grok)", envHint: "XAI_API_KEY", defaultModel: "grok-3-mini-fast", category: "Major" },
+  { id: "mistral", name: "Mistral", envHint: "MISTRAL_API_KEY", defaultModel: "mistral-large-latest", category: "Major" },
+  { id: "deepseek", name: "DeepSeek", envHint: "DEEPSEEK_API_KEY", defaultModel: "deepseek-chat", baseURL: "https://api.deepseek.com/v1", category: "Major" },
+  // ── Inference platforms ──
+  { id: "groq", name: "Groq (fast inference)", envHint: "GROQ_API_KEY", defaultModel: "llama-3.3-70b-versatile", category: "Inference" },
+  { id: "cerebras", name: "Cerebras (fast inference)", envHint: "CEREBRAS_API_KEY", defaultModel: "llama-3.3-70b", category: "Inference" },
+  { id: "together", name: "Together AI", envHint: "TOGETHER_AI_API_KEY", defaultModel: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", category: "Inference" },
+  { id: "deepinfra", name: "DeepInfra", envHint: "DEEPINFRA_API_KEY", defaultModel: "meta-llama/Meta-Llama-3.1-70B-Instruct", category: "Inference" },
+  { id: "fireworks", name: "Fireworks AI", envHint: "FIREWORKS_API_KEY", defaultModel: "accounts/fireworks/models/llama-v3p1-70b-instruct", baseURL: "https://api.fireworks.ai/inference/v1", category: "Inference" },
+  // ── Regional / specialized ──
+  { id: "moonshot", name: "Moonshot (Kimi)", envHint: "MOONSHOT_API_KEY", defaultModel: "kimi-k2-0711-preview", baseURL: "https://api.moonshot.cn/v1", category: "Regional" },
+  { id: "alibaba-cn", name: "Alibaba (Qwen / DashScope)", envHint: "DASHSCOPE_API_KEY", defaultModel: "qwen-plus", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", category: "Regional" },
+  { id: "zai", name: "z.ai (ZhipuAI / GLM)", envHint: "ZHIPU_API_KEY", defaultModel: "glm-4-flash", baseURL: "https://open.bigmodel.cn/api/paas/v4", category: "Regional" },
+  { id: "minimax", name: "MiniMax", envHint: "MINIMAX_API_KEY", defaultModel: "MiniMax-M1", baseURL: "https://api.minimaxi.chat/v1", category: "Regional" },
+  // ── Other ──
+  { id: "cohere", name: "Cohere", envHint: "COHERE_API_KEY", defaultModel: "command-r-plus", category: "Other" },
+  { id: "perplexity", name: "Perplexity", envHint: "PERPLEXITY_API_KEY", defaultModel: "sonar-pro", category: "Other" },
+  // ── Local ──
+  { id: "ollama", name: "Ollama (local)", envHint: "OLLAMA_HOST", defaultModel: "llama3.1", baseURL: "http://localhost:11434/v1", category: "Local" },
+  { id: "lmstudio", name: "LM Studio (local)", envHint: "LMSTUDIO_BASE_URL", defaultModel: "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", baseURL: "http://localhost:1234/v1", category: "Local" },
+  // ── Aggregators ──
+  { id: "openrouter", name: "OpenRouter (75+ models)", envHint: "OPENROUTER_API_KEY", defaultModel: "anthropic/claude-sonnet-4", category: "Aggregator" },
 ]
 
 function createModel(providerId: string, apiKey: string): LanguageModel {
@@ -47,20 +69,25 @@ function createModel(providerId: string, apiKey: string): LanguageModel {
     return createOpenAICompatible({ name: providerId, baseURL: provider.baseURL, apiKey })(provider.defaultModel)
   }
 
-  switch (providerId) {
-    case "anthropic":
-      return createAnthropic({ apiKey })(provider.defaultModel)
-    case "openai":
-      return createOpenAI({ apiKey })(provider.defaultModel)
-    case "google":
-      return createGoogleGenerativeAI({ apiKey })(provider.defaultModel)
-    case "xai":
-      return createXai({ apiKey })(provider.defaultModel)
-    case "openrouter":
-      return createOpenRouter({ apiKey })(provider.defaultModel)
-    default:
-      throw new Error(`Unknown provider: ${providerId}`)
+  const sdkFactories: Record<string, (opts: { apiKey: string }) => (model: string) => LanguageModel> = {
+    anthropic: (o) => createAnthropic(o),
+    openai: (o) => createOpenAI(o),
+    google: (o) => createGoogleGenerativeAI(o),
+    xai: (o) => createXai(o),
+    mistral: (o) => createMistral(o),
+    groq: (o) => createGroq(o),
+    cerebras: (o) => createCerebras(o),
+    together: (o) => createTogetherAI(o),
+    deepinfra: (o) => createDeepInfra(o),
+    cohere: (o) => createCohere(o),
+    perplexity: (o) => createPerplexity(o),
+    openrouter: (o) => createOpenRouter(o),
   }
+
+  const factory = sdkFactories[providerId]
+  if (factory) return factory({ apiKey })(provider.defaultModel)
+
+  throw new Error(`Unknown provider: ${providerId}`)
 }
 
 async function validateApiKey(providerId: string, apiKey: string): Promise<boolean> {
@@ -286,39 +313,54 @@ export const SetupCommand = cmd({
         options: PROVIDERS.map((p) => ({
           value: p.id,
           label: p.name,
-          hint: p.envHint,
+          hint: p.category === "Local" ? "no API key needed" : p.envHint,
         })),
       }),
     )
 
     const provider = PROVIDERS.find((p) => p.id === providerId)!
+    const isLocal = provider.category === "Local"
 
     let apiKey: string
-    while (true) {
-      apiKey = unwrap(
-        await prompts.text({
-          message: `Enter your ${provider.name} API key:`,
-          placeholder: provider.envHint,
-          validate: (v) => {
-            if (!v?.trim()) return "API key is required"
-          },
-        }),
-      ).trim()
-
+    if (isLocal) {
+      // Local providers (Ollama, LM Studio) don't need API keys
+      apiKey = "local"
       const s = prompts.spinner()
-      s.start("Validating API key...")
+      s.start(`Checking ${provider.name} at ${provider.baseURL}...`)
       const valid = await validateApiKey(providerId, apiKey)
       if (valid) {
-        s.stop("API key valid!")
-        break
+        s.stop(`${provider.name} is running!`)
+      } else {
+        s.stop(`Could not reach ${provider.name} at ${provider.baseURL}`)
+        prompts.log.warn("Make sure it's running before starting the daemon. Continuing anyway.")
       }
-      s.stop("API key invalid — could not reach the provider.")
-      prompts.log.error("Please check your key and try again.")
-    }
+    } else {
+      while (true) {
+        apiKey = unwrap(
+          await prompts.text({
+            message: `Enter your ${provider.name} API key:`,
+            placeholder: provider.envHint,
+            validate: (v) => {
+              if (!v?.trim()) return "API key is required"
+            },
+          }),
+        ).trim()
 
-    // Save the API key
-    await Auth.set(providerId, { type: "api", key: apiKey })
-    prompts.log.success(`${provider.name} credentials saved.`)
+        const s = prompts.spinner()
+        s.start("Validating API key...")
+        const valid = await validateApiKey(providerId, apiKey)
+        if (valid) {
+          s.stop("API key valid!")
+          break
+        }
+        s.stop("API key invalid — could not reach the provider.")
+        prompts.log.error("Please check your key and try again.")
+      }
+
+      // Save the API key
+      await Auth.set(providerId, { type: "api", key: apiKey })
+    }
+    prompts.log.success(`${provider.name} configured.`)
 
     // ── Step 2: Agent Name ────────────────────────────────────────────
     prompts.log.step("Step 2: Name your agent")
