@@ -36,6 +36,12 @@ echo -e "${BOLD}  spawnbot installer${RESET}"
 echo ""
 
 # --- Step 1: Check/install bun ---
+# Bun may be installed but not in PATH (e.g. fresh install, bashrc not sourced)
+if ! command -v bun &>/dev/null && [[ -f "$HOME/.bun/bin/bun" ]]; then
+  export BUN_INSTALL="$HOME/.bun"
+  export PATH="$BUN_INSTALL/bin:$PATH"
+fi
+
 if command -v bun &>/dev/null; then
   info "bun is already installed ($(bun --version))"
 else
