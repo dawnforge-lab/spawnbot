@@ -151,8 +151,17 @@ if [[ "$ADDED_TO_PATH" == "true" ]]; then
   echo ""
 fi
 
-info "Starting setup wizard..."
+info "To set up your agent, run:"
+echo ""
+echo "  spawnbot setup"
 echo ""
 
-# Launch the setup wizard
-exec "$BIN_DIR/spawnbot" setup
+# If stdin is a terminal (not piped), launch setup automatically
+if [ -t 0 ]; then
+  info "Starting setup wizard..."
+  echo ""
+  exec "$BIN_DIR/spawnbot" setup
+else
+  # When piped (curl | bash), stdin is the script — can't run interactive prompts
+  info "Since you installed via pipe, open a new terminal and run: spawnbot setup"
+fi
