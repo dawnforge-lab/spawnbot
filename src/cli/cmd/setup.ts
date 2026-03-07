@@ -187,7 +187,9 @@ interface GeneratedFiles {
 
 async function runCoCreation(model: LanguageModel, agentName: string): Promise<GeneratedFiles> {
   const systemPrompt = CO_CREATION_SYSTEM.replaceAll("{name}", agentName)
-  const messages: CoreMessage[] = []
+  const messages: CoreMessage[] = [
+    { role: "user", content: `My agent's name is ${agentName}. Please interview me to create its identity.` },
+  ]
 
   // Initial LLM turn — it asks the first questions
   prompts.log.info(`Starting co-creation with your LLM...${EOL}`)
