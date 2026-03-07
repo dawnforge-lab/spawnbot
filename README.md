@@ -32,21 +32,15 @@ cd ~/.spawnbot
 bun install
 ```
 
-Optionally add the CLI to your PATH:
+Optionally make `spawnbot` available everywhere:
 
 ```bash
-# Add to ~/.bashrc or ~/.zshrc
-export PATH="$HOME/.spawnbot/node_modules/.bin:$PATH"
+# Option A: alias (add to ~/.bashrc or ~/.zshrc)
 alias spawnbot="bun ~/.spawnbot/src/index.ts"
-```
 
-### Build (optional)
-
-Compile to a standalone native binary:
-
-```bash
-bun run build
-# Output: dist/spawnbot-<platform>-<arch>/bin/spawnbot
+# Option B: build a native binary
+cd ~/.spawnbot && bun run build
+cp dist/spawnbot-*/bin/spawnbot ~/.local/bin/
 ```
 
 ## Quick Start
