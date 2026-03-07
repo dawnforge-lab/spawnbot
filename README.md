@@ -7,9 +7,9 @@ Built on [Kilo Code CLI](https://github.com/Kilo-Org/kilocode) (which builds on 
 ## What It Does
 
 - **Telegram integration** — Chat with your agent from anywhere. Supports webhooks (via ngrok) or long polling.
-- **Long-term memory** — SQLite-backed memory with FTS5 full-text search. The agent stores and recalls memories across sessions. Relevant memories are automatically injected into each conversation turn.
-- **Session persistence** — Conversation history survives daemon restarts. The agent picks up where it left off.
-- **Autonomy** — Cron jobs, idle loops, and pollers let the agent act on its own schedule.
+- **Long-term memory** — SQLite-backed memory with FTS5 full-text search + optional vector embeddings. The agent stores and recalls memories across sessions. Relevant memories are automatically injected into each conversation turn.
+- **Session persistence** — Conversation history survives daemon restarts. Sessions auto-rotate after 5 compactions to stay fresh.
+- **Autonomy** — Cron jobs, idle loops, and pollers (e.g. RSS feeds) let the agent act on its own schedule.
 - **Self-extending** — The agent can create its own skills (prompt-level knowledge) and tools (executable TypeScript) at runtime.
 - **Multi-provider** — Works with Anthropic (Claude), OpenAI, Google (Gemini), DeepSeek, Groq, and 15+ other LLM providers via the Vercel AI SDK.
 - **20+ built-in tools** — bash, read, write, edit, glob, grep, web fetch, web search, memory, Telegram, and more.
@@ -20,13 +20,33 @@ Built on [Kilo Code CLI](https://github.com/Kilo-Org/kilocode) (which builds on 
 - A Telegram bot token (from [@BotFather](https://t.me/BotFather))
 - An LLM provider API key (e.g. `ANTHROPIC_API_KEY`)
 - Optional: [ngrok](https://ngrok.com/) account for Telegram webhooks
+- Optional: `OPENAI_API_KEY` for voice transcription (Whisper) and vector embeddings
 
 ## Install
 
+Clone into a dedicated directory (e.g. `~/.spawnbot`):
+
 ```bash
-git clone https://github.com/your-org/spawnbot.git
-cd spawnbot
+git clone https://github.com/dawnforge-lab/spawnbot.git ~/.spawnbot
+cd ~/.spawnbot
 bun install
+```
+
+Optionally add the CLI to your PATH:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+export PATH="$HOME/.spawnbot/node_modules/.bin:$PATH"
+alias spawnbot="bun ~/.spawnbot/src/index.ts"
+```
+
+### Build (optional)
+
+Compile to a standalone native binary:
+
+```bash
+bun run build
+# Output: dist/spawnbot-<platform>-<arch>/bin/spawnbot
 ```
 
 ## Quick Start
@@ -34,49 +54,61 @@ bun install
 ### 1. Run the setup wizard
 
 ```bash
+cd ~/.spawnbot
 bun run src/index.ts setup
 ```
 
-This creates `.spawnbot/` in your project with:
-- `SOUL.md` — Agent personality and behavior
-- `.env` — Telegram token, owner ID, ngrok config, LLM API keys
+The wizard walks you through 10 steps:
+1. Choose LLM provider + validate API key
+2. Name your agent
+3. Co-create personality with the LLM (multi-turn interview)
+4. Configure Telegram (bot token + owner ID)
+5. Optional: OpenAI API key for Whisper + embeddings
+6. Gemini safety filters (Google provider only)
+7. Schedule cron jobs
+8. Choose agent model
+9. Select optional skills (image generation, TTS, Gmail, etc.)
+10. Autostart configuration
 
-### 2. Configure your LLM provider
+This creates `.spawnbot/` in your project directory with:
+- `SOUL.md` — Agent personality and behavior (co-created with LLM)
+- `USER.md` — Information about you
+- `GOALS.md` — Current objectives
+- `PLAYBOOK.md` — Action templates
+- `.env` — API keys and secrets
+- `spawnbot.json` — Provider and model config
 
-Set your provider API key in `.spawnbot/.env` or as an environment variable:
-
-```bash
-# Anthropic (Claude)
-ANTHROPIC_API_KEY=sk-ant-...
-
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# Google
-GOOGLE_GENERATIVE_AI_API_KEY=...
-```
-
-### 3. Start the daemon
+### 2. Start the daemon
 
 ```bash
 bun run src/index.ts daemon
 ```
 
 The daemon:
-1. Loads `.spawnbot/.env`
-2. Starts ngrok tunnel (if `NGROK_AUTHTOKEN` is set)
-3. Resumes or creates a persistent session
-4. Connects to Telegram (webhook or long polling)
-5. Starts cron jobs, idle loop, and memory decay
-6. Processes incoming messages through the LLM
+1. Validates configuration (SOUL.md, API key, Telegram token)
+2. Loads `.spawnbot/.env`
+3. Starts ngrok tunnel (if `NGROK_AUTHTOKEN` is set)
+4. Resumes or creates a persistent session
+5. Connects to Telegram (webhook or long polling)
+6. Loads configured pollers (POLLERS.yaml)
+7. Starts cron jobs, idle loop, and memory decay
+8. Processes incoming messages through the LLM
 
-### 4. Talk to your agent on Telegram
+### 3. Talk to your agent on Telegram
 
 Send a message to your bot. It has full access to your project directory, all tools, and its memory system.
 
+### Dry run
+
+Test your configuration without connecting to Telegram:
+
+```bash
+bun run src/index.ts daemon --dry-run
+```
+
 ## Configuration
 
-All config lives in `.spawnbot/` (project-level) or `~/.config/spawnbot/` (global).
+All config lives in `.spawnbot/` (project-level) or `~/.config/spawnbot/` (global). Project-level takes priority.
 
 ### Files
 
@@ -88,11 +120,13 @@ All config lives in `.spawnbot/` (project-level) or `~/.config/spawnbot/` (globa
 | `PLAYBOOK.md` | Action templates and procedures |
 | `SKILLS.md` | Index of skills and tools (agent-maintained) |
 | `CRONS.yaml` | Scheduled jobs |
+| `POLLERS.yaml` | Feed/API pollers (e.g. RSS) |
 | `.env` | API keys and secrets |
+| `spawnbot.json` | Provider, model, and feature config |
 
 ### SOUL.md
 
-This is the most important file. It's the first thing the LLM sees on every turn. Define your agent's personality, rules, and behavior here.
+This is the most important file. It's inlined into the system prompt on every turn. Define your agent's personality, rules, and behavior here.
 
 ```markdown
 You are Jarvis, a sharp and efficient AI assistant.
@@ -108,7 +142,7 @@ You are Jarvis, a sharp and efficient AI assistant.
 - Respond on Telegram within one message when possible.
 ```
 
-If no SOUL.md exists, a sensible default is used.
+In daemon mode, SOUL.md is **required** — the daemon will throw if it's missing. Run `spawnbot setup` to create one.
 
 ### CRONS.yaml
 
@@ -124,23 +158,51 @@ Schedule autonomous tasks:
   prompt: "Run bun outdated and report any critical updates."
 ```
 
+Parse errors throw immediately — no silent failures.
+
+### POLLERS.yaml
+
+Monitor external feeds:
+
+```yaml
+- type: rss
+  url: https://example.com/feed.xml
+  label: example-blog
+  interval: 600  # seconds (default: 10 min)
+```
+
+New feed items are enqueued as events for the agent to process.
+
 ### .env
 
 ```bash
+# Required
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 TELEGRAM_OWNER_ID=12345678
-NGROK_AUTHTOKEN=2abc...           # Optional: enables webhook mode
-NGROK_DOMAIN=mybot.ngrok.dev      # Optional: stable URL
+
+# LLM Provider (at least one required)
 ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+GOOGLE_GENERATIVE_AI_API_KEY=...
+
+# Optional
+NGROK_AUTHTOKEN=2abc...           # Enables webhook mode
+NGROK_DOMAIN=mybot.ngrok.dev      # Stable webhook URL
+
+# Idle loop tuning (ms, optional)
+IDLE_BASE_INTERVAL=1800000        # 30 min default
+IDLE_ESCALATION=7200000           # 2h default
+IDLE_WARNING=21600000             # 6h default
 ```
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `spawnbot setup` | Interactive onboarding wizard |
+| `spawnbot setup` | Interactive onboarding wizard (10 steps) |
 | `spawnbot daemon` | Start the autonomous daemon |
-| `spawnbot doctor` | Check configuration and dependencies |
+| `spawnbot daemon --dry-run` | Validate config and exit |
+| `spawnbot doctor` | Check configuration, YAML syntax, API keys |
 | `spawnbot reset-session` | Clear daemon session (fresh conversation on next start) |
 | `spawnbot run "message"` | One-shot: send a message and get a response |
 | `spawnbot session` | Manage sessions |
@@ -151,21 +213,22 @@ All commands: `spawnbot --help`
 
 ## Memory System
 
-The agent has a long-term memory backed by SQLite with FTS5 full-text search.
+The agent has a long-term memory backed by SQLite with FTS5 full-text search and optional OpenAI vector embeddings.
 
 ### How it works
 
-1. **Agent-initiated** — The agent can explicitly call `memory_store` to save important information (preferences, decisions, facts).
-2. **Automatic recall** — Before each LLM turn, relevant memories are retrieved via FTS5 and injected into the system prompt.
-3. **Compaction flush** — When a long conversation is compacted (summarized), key sections are automatically saved as memories.
+1. **Agent-initiated** — The agent calls `memory_store` to save important information (preferences, decisions, facts).
+2. **Automatic recall** — Before each LLM turn, relevant memories are retrieved via hybrid search (FTS5 + vector similarity) and injected into the system prompt (~2000 tokens max).
+3. **Compaction flush** — When a long conversation is compacted, key sections (discoveries, goals, instructions, accomplished work) are automatically saved as memories.
 4. **Decay** — Memory importance decays over time (0.995x per hour), bottoming at 0.05. Memories are never deleted by decay.
+5. **Session rotation** — After 5 compactions, the daemon creates a fresh session. Memories carry over seamlessly since they live in the database, not the session.
 
 ### Memory tools
 
 | Tool | Purpose |
 |------|---------|
 | `memory_store` | Save a memory with content, category, importance (0-1) |
-| `memory_recall` | Full-text search across memories |
+| `memory_recall` | Hybrid full-text + semantic search across memories |
 | `memory_browse` | Browse by category, sorted by importance |
 | `memory_delete` | Remove a specific memory |
 
@@ -187,8 +250,6 @@ A skill is a `SKILL.md` file with instructions the agent can load on demand. Cre
     SKILL.md
 ```
 
-The agent has a built-in `create-skill` meta-skill that teaches it the format.
-
 ### Tools (executable code)
 
 A tool is a TypeScript file in `.spawnbot/tools/` using the `@kilocode/plugin` format:
@@ -208,7 +269,7 @@ export default tool({
 })
 ```
 
-Tools are discovered on session start. The agent has a built-in `create-tool` meta-skill that teaches it the format.
+Tools are discovered on session start.
 
 ### Built-in skills
 
@@ -216,36 +277,54 @@ Tools are discovered on session start. The agent has a built-in `create-tool` me
 |-------|---------|
 | `create-skill` | Teaches the agent how to create new SKILL.md files |
 | `create-tool` | Teaches the agent how to create custom TypeScript tools |
+| `create-poller` | Teaches the agent how to create poller plugins |
 | `coding-best-practices` | Universal tool usage, code style, and workflow guidance |
+| `autonomous-behavior` | Guidelines for autonomous operation (injected during cron/idle) |
 
-## System Prompt
+### Optional skills (selected during setup)
 
-The system prompt is kept minimal:
+| Skill | Purpose |
+|-------|---------|
+| `image-generation` | Generate images via fal.ai |
+| `text-to-speech` | Text-to-speech via Cartesia |
+| `gmail` | Read and send Gmail |
+| `google-calendar` | Manage Google Calendar events |
+| `x-twitter` | Post and read on X/Twitter |
+| `reddit` | Browse and post on Reddit |
+| `moltbook` | Moltbook integration |
 
-1. **SOUL.md** — Identity and personality (the only always-on prompt)
-2. **Environment** — Working directory, platform, paths to knowledge files
-3. **Memories** — Auto-recalled relevant memories (~2000 tokens max)
+## System Prompt Architecture
 
-Provider-specific prompts, coding guidelines, and other instructions are available as skills loaded on demand — not permanently in the system prompt.
+The system prompt uses a 3-layer model optimized for provider prompt caching:
+
+1. **Layer 1 (cached)** — Provider prompt + SOUL.md + agent prompt
+2. **Layer 2 (dynamic)** — Environment context, docs references
+3. **Layer 3 (dynamic)** — Memory context (~2000 tokens, auto-recalled)
+
+Only SOUL.md changes invalidate the prompt cache. Other docs (USER.md, GOALS.md, etc.) are referenced but not inlined — the agent reads them with file tools.
 
 ## Architecture
 
 ```
 spawnbot daemon
+  ├── Pre-flight validation (SOUL.md, API key, Telegram)
   ├── SOUL.md → System prompt (personality, rules)
-  ├── Session (SQLite) → Persistent conversation history
-  ├── Memory (SQLite + FTS5) → Long-term recall with auto-inject
-  ├── Input Queue (priority-based) → Routes events to the LLM session
-  │     ├── Telegram messages (critical priority)
+  ├── Session (SQLite) → Persistent conversation + auto-rotation
+  ├── Memory (SQLite + FTS5 + vectors) → Long-term recall with auto-inject
+  ├── Input Queue (4-level priority) → Routes events to the LLM session
+  │     ├── Telegram messages (normal priority)
   │     ├── Cron jobs (normal priority)
+  │     ├── Poller events (normal priority)
   │     └── Idle loop prompts (low priority)
-  ├── Telegram (grammY) → Webhook (ngrok) or long polling
+  ├── Error handling → Errors delivered back to user, not swallowed
+  ├── Telegram (grammY) → Webhook (ngrok) or long polling + retry
   ├── Tools (22 built-in + custom) → bash, read, write, memory, telegram, etc.
   ├── Skills (built-in + user) → On-demand prompt knowledge
   └── Vercel AI SDK → Anthropic, OpenAI, Google, DeepSeek, Groq, etc.
 ```
 
 Key design decisions:
+- **No fallbacks** — Errors are transparent, never hidden. Config parse failures throw.
 - **Single process** — No subprocesses, no IPC. The LLM runs in-process via Vercel AI SDK.
 - **SQLite for everything** — Sessions, messages, memories, state. One file, zero infrastructure.
 - **SOUL.md is king** — One file defines behavior. No scattered config.
@@ -262,10 +341,10 @@ bun run src/index.ts daemon --print-logs --log-level DEBUG
 bun run typecheck
 
 # Run tests
-bun run test
+bun test
 
-# Database tools
-bun run src/index.ts db
+# Build native binary
+bun run build
 ```
 
 ## Troubleshooting
@@ -278,7 +357,7 @@ Run the diagnostic command to check your setup:
 bun run src/index.ts doctor
 ```
 
-It checks: config directories, SOUL.md, .env, API tokens, data directory, and daemon session state.
+Checks: config directories, SOUL.md (existence + content validation), .env, API tokens, CRONS.yaml syntax, POLLERS.yaml syntax, data directory, database, and daemon session state.
 
 ### Logs
 
@@ -293,6 +372,17 @@ bun run src/index.ts reset-session
 ```
 
 The agent will start a new conversation on the next daemon start, but memories persist.
+
+### Common issues
+
+| Problem | Solution |
+|---------|----------|
+| Daemon won't start | Run `spawnbot doctor` to identify missing config |
+| "SOUL.md not found" | Run `spawnbot setup` or create `.spawnbot/SOUL.md` |
+| "No LLM provider API key" | Add `*_API_KEY` to `.spawnbot/.env` |
+| Telegram not connecting | Check `TELEGRAM_BOT_TOKEN` in `.env` |
+| Queue full messages | Agent is busy — messages are processed sequentially |
+| YAML parse error | Fix syntax in `CRONS.yaml` or `POLLERS.yaml` |
 
 ## License
 
