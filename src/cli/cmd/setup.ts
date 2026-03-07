@@ -50,6 +50,7 @@ const PROVIDERS: SetupProvider[] = [
   // ── Regional / specialized ──
   { id: "moonshot", name: "Moonshot (Kimi)", envHint: "MOONSHOT_API_KEY", defaultModel: "kimi-k2-0711-preview", baseURL: "https://api.moonshot.cn/v1", category: "Regional" },
   { id: "alibaba-cn", name: "Alibaba (Qwen / DashScope)", envHint: "DASHSCOPE_API_KEY", defaultModel: "qwen-plus", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", category: "Regional" },
+  { id: "alibaba-coding", name: "Alibaba (Coding Plan)", envHint: "DASHSCOPE_API_KEY", defaultModel: "qwen3-coder-plus", baseURL: "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1", category: "Regional" },
   { id: "zai", name: "z.ai (ZhipuAI / GLM)", envHint: "ZHIPU_API_KEY", defaultModel: "glm-4-flash", baseURL: "https://open.bigmodel.cn/api/paas/v4", category: "Regional" },
   { id: "minimax", name: "MiniMax", envHint: "MINIMAX_API_KEY", defaultModel: "MiniMax-M1", baseURL: "https://api.minimaxi.chat/v1", category: "Regional" },
   // ── Other ──
@@ -64,6 +65,11 @@ const PROVIDERS: SetupProvider[] = [
 
 function createModel(providerId: string, apiKey: string): LanguageModel {
   const provider = PROVIDERS.find((p) => p.id === providerId)!
+
+  // Alibaba Coding Plan uses Anthropic-compatible API
+  if (providerId === "alibaba-coding") {
+    return createAnthropic({ baseURL: provider.baseURL, apiKey })(provider.defaultModel)
+  }
 
   // Providers with a baseURL use openai-compatible
   if (provider.baseURL) {
@@ -774,6 +780,60 @@ export const SetupCommand = cmd({
     const config: Record<string, any> = {
       $schema: "https://opencode.ai/config.json",
       model: modelConfig,
+    }
+
+    // Alibaba Coding Plan needs a custom provider block with Anthropic SDK + model definitions
+    if (providerId === "alibaba-coding") {
+      config.provider = {
+        "alibaba-coding": {
+          npm: "@ai-sdk/anthropic",
+          name: "Alibaba Coding Plan",
+          options: {
+            baseURL: "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1",
+          },
+          models: {
+            "qwen3-coder-plus": {
+              name: "Qwen3 Coder Plus",
+              modalities: { input: ["text"], output: ["text"] },
+              limit: { context: 1000000, output: 65536 },
+            },
+            "qwen3-coder-next": {
+              name: "Qwen3 Coder Next",
+              modalities: { input: ["text"], output: ["text"] },
+              limit: { context: 262144, output: 65536 },
+            },
+            "qwen3.5-plus": {
+              name: "Qwen3.5 Plus",
+              modalities: { input: ["text", "image"], output: ["text"] },
+              options: { thinking: { type: "enabled", budgetTokens: 8192 } },
+              limit: { context: 1000000, output: 65536 },
+            },
+            "qwen3-max-2026-01-23": {
+              name: "Qwen3 Max",
+              modalities: { input: ["text"], output: ["text"] },
+              limit: { context: 262144, output: 32768 },
+            },
+            "kimi-k2.5": {
+              name: "Kimi K2.5",
+              modalities: { input: ["text", "image"], output: ["text"] },
+              options: { thinking: { type: "enabled", budgetTokens: 8192 } },
+              limit: { context: 262144, output: 32768 },
+            },
+            "MiniMax-M2.5": {
+              name: "MiniMax M2.5",
+              modalities: { input: ["text"], output: ["text"] },
+              options: { thinking: { type: "enabled", budgetTokens: 8192 } },
+              limit: { context: 204800, output: 131072 },
+            },
+            "glm-5": {
+              name: "GLM-5",
+              modalities: { input: ["text"], output: ["text"] },
+              options: { thinking: { type: "enabled", budgetTokens: 8192 } },
+              limit: { context: 202752, output: 16384 },
+            },
+          },
+        },
+      }
     }
     if (Object.keys(agentModels).length > 0) {
       config.agent = {}
