@@ -31,6 +31,7 @@ interface SetupProvider {
   defaultModel: string
   baseURL?: string // for openai-compatible providers
   category: string
+  models?: { id: string; name: string }[] // known models for selection
 }
 
 const PROVIDERS: SetupProvider[] = [
@@ -50,7 +51,15 @@ const PROVIDERS: SetupProvider[] = [
   // ── Regional / specialized ──
   { id: "moonshot", name: "Moonshot (Kimi)", envHint: "MOONSHOT_API_KEY", defaultModel: "kimi-k2-0711-preview", baseURL: "https://api.moonshot.cn/v1", category: "Regional" },
   { id: "alibaba-cn", name: "Alibaba (Qwen / DashScope)", envHint: "DASHSCOPE_API_KEY", defaultModel: "qwen-plus", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", category: "Regional" },
-  { id: "alibaba-coding", name: "Alibaba (Coding Plan)", envHint: "DASHSCOPE_API_KEY", defaultModel: "qwen3-coder-plus", baseURL: "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1", category: "Regional" },
+  { id: "alibaba-coding", name: "Alibaba (Coding Plan)", envHint: "DASHSCOPE_API_KEY", defaultModel: "qwen3-coder-plus", baseURL: "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1", category: "Regional", models: [
+    { id: "qwen3-coder-plus", name: "Qwen3 Coder Plus (1M context)" },
+    { id: "qwen3-coder-next", name: "Qwen3 Coder Next (262K context)" },
+    { id: "qwen3.5-plus", name: "Qwen3.5 Plus (1M context, thinking)" },
+    { id: "qwen3-max-2026-01-23", name: "Qwen3 Max (262K context)" },
+    { id: "kimi-k2.5", name: "Kimi K2.5 (262K context, thinking)" },
+    { id: "MiniMax-M2.5", name: "MiniMax M2.5 (204K context, thinking)" },
+    { id: "glm-5", name: "GLM-5 (202K context, thinking)" },
+  ] },
   { id: "zai", name: "z.ai (ZhipuAI / GLM)", envHint: "ZHIPU_API_KEY", defaultModel: "glm-4-flash", baseURL: "https://open.bigmodel.cn/api/paas/v4", category: "Regional" },
   { id: "minimax", name: "MiniMax", envHint: "MINIMAX_API_KEY", defaultModel: "MiniMax-M1", baseURL: "https://api.minimaxi.chat/v1", category: "Regional" },
   // ── Other ──
@@ -63,17 +72,18 @@ const PROVIDERS: SetupProvider[] = [
   { id: "openrouter", name: "OpenRouter (75+ models)", envHint: "OPENROUTER_API_KEY", defaultModel: "anthropic/claude-sonnet-4", category: "Aggregator" },
 ]
 
-function createModel(providerId: string, apiKey: string): LanguageModel {
+function createModel(providerId: string, apiKey: string, modelId?: string): LanguageModel {
   const provider = PROVIDERS.find((p) => p.id === providerId)!
+  const model = modelId ?? provider.defaultModel
 
   // Alibaba Coding Plan uses Anthropic-compatible API
   if (providerId === "alibaba-coding") {
-    return createAnthropic({ baseURL: provider.baseURL, apiKey })(provider.defaultModel)
+    return createAnthropic({ baseURL: provider.baseURL, apiKey })(model)
   }
 
   // Providers with a baseURL use openai-compatible
   if (provider.baseURL) {
-    return createOpenAICompatible({ name: providerId, baseURL: provider.baseURL, apiKey })(provider.defaultModel)
+    return createOpenAICompatible({ name: providerId, baseURL: provider.baseURL, apiKey })(model)
   }
 
   const sdkFactories: Record<string, (opts: { apiKey: string }) => (model: string) => LanguageModel> = {
@@ -92,7 +102,7 @@ function createModel(providerId: string, apiKey: string): LanguageModel {
   }
 
   const factory = sdkFactories[providerId]
-  if (factory) return factory({ apiKey })(provider.defaultModel)
+  if (factory) return factory({ apiKey })(model)
 
   throw new Error(`Unknown provider: ${providerId}`)
 }
@@ -371,6 +381,34 @@ export const SetupCommand = cmd({
     }
     prompts.log.success(`${provider.name} configured.`)
 
+    // ── Model selection ───────────────────────────────────────────────
+    let selectedModelId = provider.defaultModel
+
+    if (provider.models && provider.models.length > 1) {
+      selectedModelId = unwrap(
+        await prompts.select({
+          message: "Which model do you want to use?",
+          options: provider.models.map((m) => ({
+            value: m.id,
+            label: m.name,
+            hint: m.id === provider.defaultModel ? "recommended" : undefined,
+          })),
+          initialValue: provider.defaultModel,
+        }),
+      ) as string
+    } else if (!provider.models) {
+      // For providers without a known model list, let user type/confirm
+      selectedModelId = unwrap(
+        await prompts.text({
+          message: "Which model do you want to use?",
+          defaultValue: provider.defaultModel,
+          placeholder: provider.defaultModel,
+        }),
+      ).trim()
+    }
+
+    prompts.log.success(`Model: ${selectedModelId}`)
+
     // ── Step 2: Agent Name ────────────────────────────────────────────
     prompts.log.step("Step 2: Name your agent")
 
@@ -391,7 +429,7 @@ export const SetupCommand = cmd({
       "Your LLM will interview you to craft the agent's personality, goals, and procedures.",
     )
 
-    const model = createModel(providerId, apiKey)
+    const model = createModel(providerId, apiKey, selectedModelId)
     const s = prompts.spinner()
     s.start("Connecting to LLM...")
     // Quick warmup to fail fast if something's wrong
@@ -651,7 +689,7 @@ export const SetupCommand = cmd({
         "The main agent uses your selected provider. You can assign different models to specific roles.",
       )
       prompts.log.info(
-        `Current default: ${provider.name} / ${provider.defaultModel}`,
+        `Current default: ${provider.name} / ${selectedModelId}`,
       )
 
       const agentRoles = [
@@ -763,7 +801,7 @@ export const SetupCommand = cmd({
     }
 
     // spawnbot.json — config with model, agent overrides, and schema
-    const modelConfig: Record<string, any> = { providerID: providerId, modelID: provider.defaultModel }
+    const modelConfig: Record<string, any> = { providerID: providerId, modelID: selectedModelId }
 
     // Gemini safety filter options
     if (geminiSafety !== "default") {
