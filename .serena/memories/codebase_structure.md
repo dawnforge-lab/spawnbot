@@ -59,7 +59,7 @@ kilocode/       # Kilo-specific branding/telemetry (TO STRIP)
 - **Daemon system**: `src/daemon/index.ts` — loads env, starts ngrok tunnel, creates auto-approve session, wires input router → SessionPrompt
 - **Telegram integration**: `src/telegram/listener.ts` — grammY with webhook (ngrok) or long polling modes
 - **Tunnel**: `src/tunnel/index.ts` — ngrok SDK integration
-- **Setup wizard**: `src/cli/cmd/setup.ts` — interactive onboarding with @clack/prompts
+- **Setup wizard**: `src/cli/cmd/setup.ts` — interactive onboarding with LLM co-creation (provider setup → API key validation → multi-turn identity interview → Telegram validation → file generation)
 - **Doctor**: `src/cli/cmd/doctor.ts` — config/env diagnostics
 - **Status API**: `src/server/routes/status.ts` — uptime, queue, cron, pollers, tunnel, memory stats
 - **Memory tools**: `src/tool/memory.ts` — memory_store, memory_recall, memory_browse, memory_delete
@@ -67,3 +67,5 @@ kilocode/       # Kilo-specific branding/telemetry (TO STRIP)
 - **Custom tools**: `@kilocode/plugin` tool format — `tool({ description, args, execute })` in `.spawnbot/tools/*.ts`
 - **Build script**: `script/build.ts` — compiles to native Bun binary with bundled migrations and solid JSX plugin
 - **Type stubs**: `src/stubs/telemetry.ts` (Telemetry + Identity), `src/stubs/gateway.ts` (Kilo cloud features), `src/stubs/kilo-gateway.d.ts` (TUI type declarations)
+- **Dry-run mode**: `spawnbot daemon --dry-run` — validates config, processes one test event, exits
+- **Code cleanup**: All `// kilocode_change` markers removed (402 comments across 70 files), dead Kilo telemetry code deleted

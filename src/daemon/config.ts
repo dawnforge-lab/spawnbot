@@ -6,6 +6,7 @@ import { Global } from "@/global"
 import { Log } from "@/util/log"
 import type { CronScheduler } from "@/autonomy/cron"
 import { PollerManager } from "@/autonomy/poller"
+import { createRssPoller, type RssPollerConfig } from "@/autonomy/pollers/rss"
 
 const log = Log.create({ service: "daemon.config" })
 
@@ -77,15 +78,17 @@ export function wirePollerState() {
   const stateDir = path.join(Global.Path.data, "poller-state")
   fs.mkdirSync(stateDir, { recursive: true })
 
+  const safeName = (name: string) => name.replace(/[/\\]/g, "_")
+
   PollerManager.setStatePersistence(
     async (name: string) => {
-      const file = path.join(stateDir, `${name}.json`)
+      const file = path.join(stateDir, `${safeName(name)}.json`)
       if (!fs.existsSync(file)) return {}
       const content = fs.readFileSync(file, "utf-8")
       return JSON.parse(content)
     },
     async (name: string, state: Record<string, any>) => {
-      const file = path.join(stateDir, `${name}.json`)
+      const file = path.join(stateDir, `${safeName(name)}.json`)
       fs.writeFileSync(file, JSON.stringify(state, null, 2))
     },
   )
@@ -128,6 +131,58 @@ export function clearSessionID() {
 
 function sessionIDPath(): string {
   return path.join(Global.Path.data, "daemon-session-id")
+}
+
+/**
+ * Load POLLERS.yaml from .spawnbot/ or global config.
+ * Registers all configured pollers with the PollerManager.
+ *
+ * Format:
+ * ```yaml
+ * - type: rss
+ *   url: https://example.com/feed.xml
+ *   label: example        # optional
+ *   interval: 600         # optional, seconds
+ * ```
+ */
+export async function loadPollers() {
+  const candidates = [
+    tryPath(path.join(Instance.directory, ".spawnbot", "POLLERS.yaml")),
+    tryPath(path.join(Global.Path.config, "POLLERS.yaml")),
+  ].filter(Boolean) as string[]
+
+  for (const pollerPath of candidates) {
+    const content = fs.readFileSync(pollerPath, "utf-8")
+    let parsed: unknown
+    try {
+      parsed = yaml.load(content)
+    } catch (err) {
+      log.error("failed to parse POLLERS.yaml", { path: pollerPath, error: String(err) })
+      return
+    }
+    if (!Array.isArray(parsed)) {
+      log.warn("POLLERS.yaml is not an array, skipping", { path: pollerPath })
+      return
+    }
+
+    let registered = 0
+    for (const entry of parsed) {
+      if (entry.type === "rss" && entry.url) {
+        const config: RssPollerConfig = {
+          url: entry.url,
+          label: entry.label,
+          interval: entry.interval,
+        }
+        await PollerManager.register(createRssPoller(config), config.interval)
+        registered++
+      } else {
+        log.warn("unknown poller type or missing url", { entry })
+      }
+    }
+
+    log.info("loaded pollers", { path: pollerPath, count: registered })
+    return
+  }
 }
 
 function tryPath(p: string): string | undefined {

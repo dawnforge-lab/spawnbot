@@ -13,7 +13,7 @@ import { deliverResponse } from "@/input/response"
 import { flushFromCompaction } from "@/memory/flush"
 import { SessionCompaction } from "@/session/compaction"
 import { Bus } from "@/bus"
-import { loadEnv, loadCrons, wirePollerState, saveSessionID, loadSessionID, clearSessionID } from "./config"
+import { loadEnv, loadCrons, loadPollers, wirePollerState, saveSessionID, loadSessionID, clearSessionID } from "./config"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Skill } from "@/skill/skill"
@@ -24,6 +24,8 @@ const log = Log.create({ service: "daemon" })
 
 export namespace Daemon {
   let sessionID: string | undefined
+  let compactionCount = 0
+  const COMPACTIONS_BEFORE_ROTATION = 5
 
   export interface StartOptions {
     /** Local server port (needed for ngrok forwarding) */
@@ -146,8 +148,9 @@ export namespace Daemon {
       log.warn("TELEGRAM_BOT_TOKEN not set, skipping Telegram")
     }
 
-    // Wire poller state persistence
+    // Wire poller state persistence and load configured pollers
     wirePollerState()
+    await loadPollers()
 
     // Start cron jobs
     const crons = loadCrons()
@@ -155,11 +158,18 @@ export namespace Daemon {
       CronScheduler.start(crons)
     }
 
-    // Flush compaction summaries to long-term memory
+    // Flush compaction summaries to long-term memory + rotate session after N compactions
     Bus.subscribe(SessionCompaction.Event.Compacted, async (event) => {
       await flushFromCompaction(event.properties.sessionID).catch((err) => {
         log.error("memory flush failed", { error: err })
       })
+
+      compactionCount++
+      log.info("compaction occurred", { compactionCount, threshold: COMPACTIONS_BEFORE_ROTATION })
+
+      if (compactionCount >= COMPACTIONS_BEFORE_ROTATION) {
+        await rotateSession()
+      }
     })
 
     // Start autonomy
@@ -202,6 +212,22 @@ export namespace Daemon {
   export function resetSession() {
     clearSessionID()
     sessionID = undefined
+  }
+
+  /** Rotate to a fresh session after too many compactions */
+  async function rotateSession() {
+    const oldID = sessionID
+    const autoApprove: Session.Info["permission"] = [{ permission: "*", pattern: "*", action: "allow" }]
+
+    const session = await Session.create({
+      title: "Daemon session",
+      permission: autoApprove,
+    })
+
+    sessionID = session.id
+    compactionCount = 0
+    saveSessionID(session.id)
+    log.info("session rotated", { oldSessionID: oldID, newSessionID: session.id })
   }
 }
 
