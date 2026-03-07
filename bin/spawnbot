@@ -193,10 +193,15 @@ case "${1:-}" in
   reset)
     run_cli reset-session
     ;;
-  ""|help|-h|--help)
+  help|-h|--help)
     cmd_help
     ;;
-  # Everything else passes through to the TypeScript CLI
+  setup)
+    # Launch TUI with /setup pre-filled
+    shift
+    run_cli --prompt "/setup" "$@"
+    ;;
+  # Everything else passes through to the TypeScript CLI (including "" for default TUI)
   *)
     run_cli "$@"
     ;;

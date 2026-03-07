@@ -35,7 +35,15 @@ const AttachCommand = {
 const TuiThreadCommand = {
   command: "$0 [project]",
   describe: "start spawnbot tui",
-  builder: (yargs: any) => yargs.positional("project", { type: "string" }),
+  builder: (yargs: any) =>
+    yargs
+      .positional("project", { type: "string" })
+      .option("prompt", { type: "string", describe: "initial prompt to send" })
+      .option("model", { type: "string", alias: ["m"], describe: "model to use" })
+      .option("continue", { alias: ["c"], type: "boolean", describe: "continue last session" })
+      .option("session", { alias: ["s"], type: "string", describe: "session id to continue" })
+      .option("fork", { type: "boolean", describe: "fork the session" })
+      .option("agent", { type: "string", describe: "agent to use" }),
   handler: async (args: any) => {
     const { TuiThreadCommand: Cmd } = await import("./cli/cmd/tui/thread")
     return Cmd.handler!(args)
