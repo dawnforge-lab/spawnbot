@@ -14,42 +14,44 @@ Built on [Kilo Code CLI](https://github.com/Kilo-Org/kilocode) (which builds on 
 - **Multi-provider** — Works with Anthropic (Claude), OpenAI, Google (Gemini), DeepSeek, Groq, and 15+ other LLM providers via the Vercel AI SDK.
 - **20+ built-in tools** — bash, read, write, edit, glob, grep, web fetch, web search, memory, Telegram, and more.
 
-## Requirements
+## Quick Install
 
-- [Bun](https://bun.sh/) v1.1+
-- A Telegram bot token (from [@BotFather](https://t.me/BotFather))
-- An LLM provider API key (e.g. `ANTHROPIC_API_KEY`)
-- Optional: [ngrok](https://ngrok.com/) account for Telegram webhooks
-- Optional: `OPENAI_API_KEY` for voice transcription (Whisper) and vector embeddings
+One command to install everything:
 
-## Install
+```bash
+curl -fsSL https://raw.githubusercontent.com/dawnforge-lab/spawnbot/main/install.sh | bash
+```
 
-Clone into a dedicated directory (e.g. `~/.spawnbot`):
+This will:
+1. Install [bun](https://bun.sh/) if you don't have it
+2. Clone spawnbot to `~/.spawnbot`
+3. Install all dependencies
+4. Add `spawnbot` to your PATH
+5. Launch the setup wizard
+
+### Manual Install
 
 ```bash
 git clone https://github.com/dawnforge-lab/spawnbot.git ~/.spawnbot
 cd ~/.spawnbot
 bun install
+export PATH="$HOME/.spawnbot/bin:$PATH"  # add to ~/.bashrc or ~/.zshrc
+spawnbot setup
 ```
 
-Optionally make `spawnbot` available everywhere:
+## Requirements
 
-```bash
-# Option A: alias (add to ~/.bashrc or ~/.zshrc)
-alias spawnbot="bun ~/.spawnbot/src/index.ts"
+- A Telegram bot token (from [@BotFather](https://t.me/BotFather))
+- An LLM provider API key (e.g. `ANTHROPIC_API_KEY`)
+- Optional: [ngrok](https://ngrok.com/) account for Telegram webhooks
+- Optional: `OPENAI_API_KEY` for voice transcription (Whisper) and vector embeddings
 
-# Option B: build a native binary
-cd ~/.spawnbot && bun run build
-cp dist/spawnbot-*/bin/spawnbot ~/.local/bin/
-```
-
-## Quick Start
+## Getting Started
 
 ### 1. Run the setup wizard
 
 ```bash
-cd ~/.spawnbot
-bun run src/index.ts setup
+spawnbot setup
 ```
 
 The wizard walks you through 10 steps:
@@ -72,33 +74,43 @@ This creates `.spawnbot/` in your project directory with:
 - `.env` — API keys and secrets
 - `spawnbot.json` — Provider and model config
 
-### 2. Start the daemon
+### 2. Start the agent
 
 ```bash
-bun run src/index.ts daemon
+spawnbot start
 ```
 
-The daemon:
-1. Validates configuration (SOUL.md, API key, Telegram token)
-2. Loads `.spawnbot/.env`
-3. Starts ngrok tunnel (if `NGROK_AUTHTOKEN` is set)
-4. Resumes or creates a persistent session
-5. Connects to Telegram (webhook or long polling)
-6. Loads configured pollers (POLLERS.yaml)
-7. Starts cron jobs, idle loop, and memory decay
-8. Processes incoming messages through the LLM
+That's it. Your agent is now running in the background, connected to Telegram, and ready to chat.
 
 ### 3. Talk to your agent on Telegram
 
 Send a message to your bot. It has full access to your project directory, all tools, and its memory system.
 
-### Dry run
+## Commands
 
-Test your configuration without connecting to Telegram:
+| Command | Description |
+|---------|-------------|
+| `spawnbot setup` | Interactive onboarding wizard |
+| `spawnbot start` | Start the agent in the background |
+| `spawnbot stop` | Stop the agent |
+| `spawnbot restart` | Restart the agent |
+| `spawnbot status` | Check if the agent is running |
+| `spawnbot logs` | Show recent log output |
+| `spawnbot logs -f` | Follow logs in real time |
+| `spawnbot doctor` | Check configuration and dependencies |
+| `spawnbot run "message"` | One-shot: send a message and get a response |
+| `spawnbot reset` | Clear conversation history (fresh start) |
 
-```bash
-bun run src/index.ts daemon --dry-run
-```
+### Advanced Commands
+
+| Command | Description |
+|---------|-------------|
+| `spawnbot daemon` | Start in foreground (for debugging) |
+| `spawnbot daemon --dry-run` | Validate config and exit |
+| `spawnbot auth` | Manage LLM provider credentials |
+| `spawnbot models` | List available models |
+| `spawnbot session` | Manage sessions |
+| `spawnbot --help` | Show all available commands |
 
 ## Configuration
 
@@ -189,22 +201,6 @@ IDLE_ESCALATION=7200000           # 2h default
 IDLE_WARNING=21600000             # 6h default
 ```
 
-## CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `spawnbot setup` | Interactive onboarding wizard (10 steps) |
-| `spawnbot daemon` | Start the autonomous daemon |
-| `spawnbot daemon --dry-run` | Validate config and exit |
-| `spawnbot doctor` | Check configuration, YAML syntax, API keys |
-| `spawnbot reset-session` | Clear daemon session (fresh conversation on next start) |
-| `spawnbot run "message"` | One-shot: send a message and get a response |
-| `spawnbot session` | Manage sessions |
-| `spawnbot auth` | Manage LLM provider credentials |
-| `spawnbot models` | List available models |
-
-All commands: `spawnbot --help`
-
 ## Memory System
 
 The agent has a long-term memory backed by SQLite with FTS5 full-text search and optional OpenAI vector embeddings.
@@ -268,7 +264,7 @@ Tools are discovered on session start.
 ### Built-in skills
 
 | Skill | Purpose |
-|-------|---------|
+|----------|---------|
 | `create-skill` | Teaches the agent how to create new SKILL.md files |
 | `create-tool` | Teaches the agent how to create custom TypeScript tools |
 | `create-poller` | Teaches the agent how to create poller plugins |
@@ -278,7 +274,7 @@ Tools are discovered on session start.
 ### Optional skills (selected during setup)
 
 | Skill | Purpose |
-|-------|---------|
+|----------|---------|
 | `image-generation` | Generate images via fal.ai |
 | `text-to-speech` | Text-to-speech via Cartesia |
 | `gmail` | Read and send Gmail |
@@ -300,7 +296,7 @@ Only SOUL.md changes invalidate the prompt cache. Other docs (USER.md, GOALS.md,
 ## Architecture
 
 ```
-spawnbot daemon
+spawnbot start
   ├── Pre-flight validation (SOUL.md, API key, Telegram)
   ├── SOUL.md → System prompt (personality, rules)
   ├── Session (SQLite) → Persistent conversation + auto-rotation
@@ -348,35 +344,75 @@ bun run build
 Run the diagnostic command to check your setup:
 
 ```bash
-bun run src/index.ts doctor
+spawnbot doctor
 ```
 
 Checks: config directories, SOUL.md (existence + content validation), .env, API tokens, CRONS.yaml syntax, POLLERS.yaml syntax, data directory, database, and daemon session state.
 
 ### Logs
 
-Logs are written to `~/.local/share/spawnbot/log/`. Use `--print-logs` to also print to stderr.
+```bash
+# Show recent logs
+spawnbot logs
+
+# Follow logs in real time
+spawnbot logs -f
+```
+
+Log files are stored in `~/.local/share/spawnbot/log/`.
 
 ### Fresh start
 
-To reset the daemon's conversation history:
+To reset the agent's conversation history:
 
 ```bash
-bun run src/index.ts reset-session
+spawnbot reset
 ```
 
-The agent will start a new conversation on the next daemon start, but memories persist.
+The agent will start a new conversation on the next start, but memories persist.
 
 ### Common issues
 
 | Problem | Solution |
 |---------|----------|
-| Daemon won't start | Run `spawnbot doctor` to identify missing config |
+| Agent won't start | Run `spawnbot doctor` to identify missing config |
 | "SOUL.md not found" | Run `spawnbot setup` or create `.spawnbot/SOUL.md` |
 | "No LLM provider API key" | Add `*_API_KEY` to `.spawnbot/.env` |
 | Telegram not connecting | Check `TELEGRAM_BOT_TOKEN` in `.env` |
 | Queue full messages | Agent is busy — messages are processed sequentially |
 | YAML parse error | Fix syntax in `CRONS.yaml` or `POLLERS.yaml` |
+
+## Updating
+
+```bash
+cd ~/.spawnbot
+git pull
+bun install
+spawnbot restart
+```
+
+Or re-run the installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dawnforge-lab/spawnbot/main/install.sh | bash
+```
+
+## Uninstalling
+
+```bash
+# Stop the agent
+spawnbot stop
+
+# Remove the installation
+rm -rf ~/.spawnbot
+
+# Remove the PATH entry from your shell config (~/.bashrc, ~/.zshrc, etc.)
+# Look for the line: export PATH="$HOME/.spawnbot/bin:$PATH"
+
+# Optionally remove data
+rm -rf ~/.local/share/spawnbot
+rm -rf ~/.config/spawnbot
+```
 
 ## License
 

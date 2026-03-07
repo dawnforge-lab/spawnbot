@@ -1,2 +1,197 @@
-#!/usr/bin/env bun
-import "../src/index.ts"
+#!/usr/bin/env bash
+#
+# spawnbot — friendly CLI wrapper
+#
+# Maps user-friendly commands to the underlying bun/TypeScript CLI.
+# Installed to ~/.spawnbot/bin/spawnbot and added to PATH.
+#
+
+set -euo pipefail
+
+# Resolve the spawnbot installation directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SPAWNBOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# PID file for daemon management
+PID_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/spawnbot/daemon.pid"
+LOG_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/spawnbot/log"
+
+# Ensure bun is available
+check_bun() {
+  if ! command -v bun &>/dev/null; then
+    echo "Error: bun is not installed."
+    echo "Install it with: curl -fsSL https://bun.sh/install | bash"
+    exit 1
+  fi
+}
+
+# Run the TypeScript CLI via bun
+run_cli() {
+  check_bun
+  exec bun run "$SPAWNBOT_DIR/src/index.ts" "$@"
+}
+
+# Get daemon PID (returns 0 if not running)
+get_daemon_pid() {
+  if [[ -f "$PID_FILE" ]]; then
+    local pid
+    pid=$(cat "$PID_FILE" 2>/dev/null)
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      echo "$pid"
+      return 0
+    fi
+  fi
+  echo ""
+  return 1
+}
+
+# --- Commands ---
+
+cmd_start() {
+  check_bun
+
+  local pid
+  if pid=$(get_daemon_pid); then
+    echo "spawnbot is already running (PID $pid)"
+    echo "Use 'spawnbot restart' to restart, or 'spawnbot stop' to stop."
+    exit 1
+  fi
+
+  echo "Starting spawnbot daemon..."
+  mkdir -p "$(dirname "$PID_FILE")" "$LOG_DIR"
+
+  # Start daemon in background, redirect output to log
+  nohup bun run "$SPAWNBOT_DIR/src/index.ts" daemon "$@" \
+    >> "$LOG_DIR/daemon.log" 2>&1 &
+  local daemon_pid=$!
+
+  echo "$daemon_pid" > "$PID_FILE"
+
+  # Wait briefly to check it didn't crash immediately
+  sleep 2
+  if kill -0 "$daemon_pid" 2>/dev/null; then
+    echo "spawnbot started (PID $daemon_pid)"
+    echo "Logs: $LOG_DIR/daemon.log"
+  else
+    echo "spawnbot failed to start. Check logs:"
+    echo "  tail -50 $LOG_DIR/daemon.log"
+    rm -f "$PID_FILE"
+    exit 1
+  fi
+}
+
+cmd_stop() {
+  local pid
+  if ! pid=$(get_daemon_pid); then
+    echo "spawnbot is not running."
+    return 0
+  fi
+
+  echo "Stopping spawnbot (PID $pid)..."
+  kill "$pid" 2>/dev/null || true
+
+  # Wait for graceful shutdown (up to 10s)
+  local waited=0
+  while kill -0 "$pid" 2>/dev/null && [[ $waited -lt 10 ]]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  if kill -0 "$pid" 2>/dev/null; then
+    echo "Force killing..."
+    kill -9 "$pid" 2>/dev/null || true
+  fi
+
+  rm -f "$PID_FILE"
+  echo "spawnbot stopped."
+}
+
+cmd_restart() {
+  cmd_stop
+  cmd_start "$@"
+}
+
+cmd_status() {
+  local pid
+  if pid=$(get_daemon_pid); then
+    echo "spawnbot is running (PID $pid)"
+  else
+    echo "spawnbot is not running."
+  fi
+}
+
+cmd_logs() {
+  local log_file="$LOG_DIR/daemon.log"
+  if [[ ! -f "$log_file" ]]; then
+    echo "No log file found at $log_file"
+    exit 1
+  fi
+
+  local lines="${1:-50}"
+  if [[ "${1:-}" == "-f" || "${1:-}" == "--follow" ]]; then
+    tail -f "$log_file"
+  else
+    tail -n "$lines" "$log_file"
+    echo ""
+    echo "Tip: use 'spawnbot logs -f' to follow logs in real time."
+  fi
+}
+
+cmd_help() {
+  echo "spawnbot — autonomous AI agent"
+  echo ""
+  echo "Usage: spawnbot <command> [options]"
+  echo ""
+  echo "Commands:"
+  echo "  setup        Run the onboarding wizard"
+  echo "  start        Start the daemon in the background"
+  echo "  stop         Stop the daemon"
+  echo "  restart      Restart the daemon"
+  echo "  status       Check if the daemon is running"
+  echo "  logs [N|-f]  Show last N log lines (default: 50) or follow with -f"
+  echo "  doctor       Check configuration and dependencies"
+  echo "  run \"msg\"    Send a one-shot message and get a response"
+  echo "  reset        Clear conversation history (fresh start)"
+  echo ""
+  echo "Advanced:"
+  echo "  daemon       Start daemon in foreground (for debugging)"
+  echo "  auth         Manage LLM provider credentials"
+  echo "  models       List available models"
+  echo "  session      Manage sessions"
+  echo "  --help       Show all commands"
+  echo ""
+  echo "Get started:  spawnbot setup"
+}
+
+# --- Main ---
+
+case "${1:-}" in
+  start)
+    shift
+    cmd_start "$@"
+    ;;
+  stop)
+    cmd_stop
+    ;;
+  restart)
+    shift
+    cmd_restart "$@"
+    ;;
+  status)
+    cmd_status
+    ;;
+  logs)
+    shift
+    cmd_logs "${1:-50}"
+    ;;
+  reset)
+    run_cli reset-session
+    ;;
+  ""|help|-h|--help)
+    cmd_help
+    ;;
+  # Everything else passes through to the TypeScript CLI
+  *)
+    run_cli "$@"
+    ;;
+esac
