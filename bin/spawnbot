@@ -31,8 +31,12 @@ check_bun() {
 }
 
 # Run the TypeScript CLI via bun
+# Must cd to SPAWNBOT_DIR so bun finds bunfig.toml (needed for JSX preload).
+# Preserve original PWD so the TUI knows the real project directory.
 run_cli() {
   check_bun
+  export SPAWNBOT_ORIGINAL_CWD="${PWD}"
+  cd "$SPAWNBOT_DIR"
   exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" "$@"
 }
 
