@@ -20,8 +20,27 @@ import { StatsCommand } from "./cli/cmd/stats"
 import { McpCommand } from "./cli/cmd/mcp"
 import { ExportCommand } from "./cli/cmd/export"
 import { ImportCommand } from "./cli/cmd/import"
-import { AttachCommand } from "./cli/cmd/tui/attach"
-import { TuiThreadCommand } from "./cli/cmd/tui/thread"
+// TUI commands are lazy-loaded to avoid pulling in .tsx / JSX at import time.
+// This allows non-TUI commands (setup, daemon, doctor) to run without the
+// @opentui/solid Babel preload, which requires bunfig.toml in $cwd.
+const AttachCommand = {
+  command: "attach <url>",
+  describe: "attach to a running spawnbot server",
+  builder: (yargs: any) => yargs.positional("url", { type: "string", demandOption: true }),
+  handler: async (args: any) => {
+    const { AttachCommand: Cmd } = await import("./cli/cmd/tui/attach")
+    return Cmd.handler!(args)
+  },
+}
+const TuiThreadCommand = {
+  command: "$0 [project]",
+  describe: "start spawnbot tui",
+  builder: (yargs: any) => yargs.positional("project", { type: "string" }),
+  handler: async (args: any) => {
+    const { TuiThreadCommand: Cmd } = await import("./cli/cmd/tui/thread")
+    return Cmd.handler!(args)
+  },
+}
 import { AcpCommand } from "./cli/cmd/acp"
 import { EOL } from "os"
 import { PrCommand } from "./cli/cmd/pr"
