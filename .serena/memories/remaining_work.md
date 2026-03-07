@@ -21,10 +21,11 @@
 - Verify: daemon boots → Telegram connects → messages route → LLM responds → reply sent
 - Cannot be automated without credentials
 
-## 5. Poller Plugins
-- Framework in `src/autonomy/poller.ts` is ready
-- No pollers registered yet (X/Twitter, Reddit, etc.)
-- Each poller: poll external source → create InputItem → enqueue
+## 5. Poller Plugins — DONE (RSS demo + skill)
+- RSS poller built-in: `src/autonomy/pollers/rss.ts` (factory function `createRssPoller`)
+- Declarative config via `POLLERS.yaml` (same pattern as CRONS.yaml)
+- `create-poller` skill teaches agent to write custom pollers at runtime
+- Agent can create pollers in `.spawnbot/pollers/` and register them
 
 ## Completed (removed from this list)
 - Phase A-B (type safety): 0 TS errors

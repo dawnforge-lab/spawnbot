@@ -62,6 +62,8 @@ kilocode/       # Kilo-specific branding/telemetry (TO STRIP)
 - **Setup wizard**: `src/cli/cmd/setup.ts` — interactive onboarding with LLM co-creation (provider setup → API key validation → multi-turn identity interview → Telegram validation → file generation)
 - **Doctor**: `src/cli/cmd/doctor.ts` — config/env diagnostics
 - **Status API**: `src/server/routes/status.ts` — uptime, queue, cron, pollers, tunnel, memory stats
+- **RSS poller**: `src/autonomy/pollers/rss.ts` — factory for RSS/Atom feed pollers, configured via `POLLERS.yaml`
+- **Create-poller skill**: `src/skill/builtin/create-poller/SKILL.md` — teaches agent to write custom pollers
 - **Memory tools**: `src/tool/memory.ts` — memory_store, memory_recall, memory_browse, memory_delete
 - **Telegram tools**: `src/tool/telegram.ts` — tg_send, tg_photo, tg_react
 - **Custom tools**: `@kilocode/plugin` tool format — `tool({ description, args, execute })` in `.spawnbot/tools/*.ts`

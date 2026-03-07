@@ -46,10 +46,13 @@ function findFile(filename: string): string | undefined {
  * Returns the file content directly — it's Markdown, ready for the system prompt.
  * Falls back to the built-in default if no SOUL.md exists.
  */
-export function loadSoul(): string {
+export function loadSoul(opts?: { required?: boolean }): string {
   const soulPath = findFile(DOCS.soul)
 
   if (!soulPath) {
+    if (opts?.required) {
+      throw new Error("SOUL.md not found. Run 'spawnbot setup' to create one.")
+    }
     return DEFAULT_SOUL
   }
 

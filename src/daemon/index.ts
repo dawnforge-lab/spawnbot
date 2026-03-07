@@ -19,6 +19,7 @@ import { SessionPrompt } from "@/session/prompt"
 import { Skill } from "@/skill/skill"
 import { Identifier } from "@/id/id"
 import { MessageV2 } from "@/session/message-v2"
+import { loadSoul } from "@/soul"
 
 const log = Log.create({ service: "daemon" })
 
@@ -45,6 +46,9 @@ export namespace Daemon {
   export async function start(opts: StartOptions) {
     // Load agent-specific .env
     loadEnv()
+
+    // Pre-flight validation
+    validate()
 
     // Start ngrok tunnel if authtoken is available
     let webhookUrl: string | undefined
@@ -86,6 +90,7 @@ export namespace Daemon {
 
     // Wire input router to process events through the session
     InputRouter.setHandler(async (event) => {
+      const currentSessionID = sessionID!
       const input = InputRouter.formatInput(event)
       IdleLoop.touch()
 
@@ -115,7 +120,7 @@ export namespace Daemon {
 
       const messageID = Identifier.ascending("message")
       const result = await SessionPrompt.prompt({
-        sessionID: sessionID!,
+        sessionID: currentSessionID,
         messageID,
         system,
         parts,
@@ -173,7 +178,11 @@ export namespace Daemon {
     })
 
     // Start autonomy
-    IdleLoop.start()
+    IdleLoop.start({
+      baseInterval: process.env.IDLE_BASE_INTERVAL ? parseInt(process.env.IDLE_BASE_INTERVAL) : undefined,
+      escalationThreshold: process.env.IDLE_ESCALATION ? parseInt(process.env.IDLE_ESCALATION) : undefined,
+      warningThreshold: process.env.IDLE_WARNING ? parseInt(process.env.IDLE_WARNING) : undefined,
+    })
     startDecay()
 
     // Start the input router loop in background (it blocks until stopped)
@@ -212,6 +221,21 @@ export namespace Daemon {
   export function resetSession() {
     clearSessionID()
     sessionID = undefined
+  }
+
+  /** Validate critical configuration before starting subsystems */
+  function validate() {
+    // SOUL.md is required in daemon mode
+    loadSoul({ required: true })
+
+    // At least one LLM provider must be configured
+    const providerKeys = Object.keys(process.env).filter((k) => k.endsWith("_API_KEY"))
+    if (providerKeys.length === 0) {
+      throw new Error(
+        "No LLM provider API key found. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or another provider key in .env",
+      )
+    }
+    log.info("pre-flight validation passed", { providers: providerKeys.length })
   }
 
   /** Rotate to a fresh session after too many compactions */

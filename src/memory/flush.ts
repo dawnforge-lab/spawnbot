@@ -18,7 +18,7 @@ export async function flushFromCompaction(sessionID: string) {
     (m) => m.info.role === "assistant" && (m.info as any).summary === true,
   )
   if (!summary) {
-    log.warn("no summary message found for flush", { sessionID })
+    log.error("no summary message found after compaction — memories will not be preserved", { sessionID })
     return
   }
 
@@ -32,6 +32,19 @@ export async function flushFromCompaction(sessionID: string) {
   // Extract sections from the structured summary template
   const sections = parseSummarySections(text)
   let stored = 0
+
+  // If section parsing found no headings but we have text, store the raw summary
+  if (Object.keys(sections).length === 0 && text.trim()) {
+    log.warn("section parser found no headings — storing raw compaction summary", { sessionID })
+    await Memory.store({
+      content: text.trim(),
+      category: "task",
+      importance: 0.7,
+      source: `compaction:${sessionID}`,
+    })
+    log.info("flushed raw compaction to memory", { sessionID, stored: 1 })
+    return
+  }
 
   // Store discoveries as factual memories (highest value — learned knowledge)
   if (sections.discoveries) {
@@ -92,7 +105,7 @@ function parseSummarySections(text: string): Record<string, string> {
   let currentKey: string | undefined
 
   for (const line of lines) {
-    const heading = line.match(/^##\s+(.+)/)
+    const heading = line.match(/^#{1,3}\s+(.+)/)
     if (heading) {
       currentKey = heading[1].trim().toLowerCase().replace(/\s+\/\s+/g, "_").replace(/\s+/g, "_")
       sections[currentKey] = ""

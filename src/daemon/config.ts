@@ -57,12 +57,10 @@ export function loadCrons(): CronScheduler.Job[] {
     try {
       parsed = yaml.load(content)
     } catch (err) {
-      log.error("failed to parse CRONS.yaml", { path: cronPath, error: String(err) })
-      return []
+      throw new Error(`Failed to parse CRONS.yaml at ${cronPath}: ${String(err)}`)
     }
     if (!Array.isArray(parsed)) {
-      log.warn("CRONS.yaml is not an array, skipping", { path: cronPath })
-      return []
+      throw new Error(`CRONS.yaml at ${cronPath} must be a YAML array`)
     }
     log.info("loaded crons", { path: cronPath, count: parsed.length })
     return parsed as CronScheduler.Job[]
@@ -157,12 +155,10 @@ export async function loadPollers() {
     try {
       parsed = yaml.load(content)
     } catch (err) {
-      log.error("failed to parse POLLERS.yaml", { path: pollerPath, error: String(err) })
-      return
+      throw new Error(`Failed to parse POLLERS.yaml at ${pollerPath}: ${String(err)}`)
     }
     if (!Array.isArray(parsed)) {
-      log.warn("POLLERS.yaml is not an array, skipping", { path: pollerPath })
-      return
+      throw new Error(`POLLERS.yaml at ${pollerPath} must be a YAML array`)
     }
 
     let registered = 0

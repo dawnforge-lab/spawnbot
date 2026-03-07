@@ -3,6 +3,7 @@ import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import path from "path"
 import fs from "fs"
+import yaml from "js-yaml"
 import { Global } from "../../global"
 import { Instance } from "../../project/instance"
 
@@ -46,6 +47,23 @@ export const DoctorCommand = cmd({
         },
       },
       {
+        name: "SOUL.md content",
+        run: () => {
+          const locations = [Global.Path.config]
+          try { locations.unshift(path.join(Instance.directory, ".spawnbot")) } catch { /* no instance */ }
+
+          for (const dir of locations) {
+            const p = path.join(dir, "SOUL.md")
+            if (!fs.existsSync(p)) continue
+            const content = fs.readFileSync(p, "utf-8")
+            if (content.length < 50) return `${p}: suspiciously short (${content.length} chars)`
+            if (!content.includes("# ")) return `${p}: no Markdown headings found — may be malformed`
+            return undefined
+          }
+          return "No SOUL.md found to validate"
+        },
+      },
+      {
         name: ".env file",
         run: () => {
           const locations = [
@@ -62,6 +80,14 @@ export const DoctorCommand = cmd({
         },
       },
       {
+        name: "LLM provider API key",
+        run: () => {
+          const keys = Object.keys(process.env).filter((k) => k.endsWith("_API_KEY"))
+          if (keys.length > 0) return undefined
+          return "No *_API_KEY environment variable found — set one in .env (will be loaded at runtime)"
+        },
+      },
+      {
         name: "TELEGRAM_BOT_TOKEN",
         run: () => {
           if (process.env.TELEGRAM_BOT_TOKEN) return undefined
@@ -73,6 +99,48 @@ export const DoctorCommand = cmd({
         run: () => {
           if (process.env.NGROK_AUTHTOKEN) return undefined
           return "Not set — Telegram will use long polling instead of webhooks (will be loaded from .env at runtime)"
+        },
+      },
+      {
+        name: "CRONS.yaml syntax",
+        run: () => {
+          const locations: string[] = []
+          try { locations.push(path.join(Instance.directory, ".spawnbot", "CRONS.yaml")) } catch { /* no instance */ }
+          locations.push(path.join(Global.Path.config, "CRONS.yaml"))
+
+          for (const loc of locations) {
+            if (!fs.existsSync(loc)) continue
+            try {
+              const content = fs.readFileSync(loc, "utf-8")
+              const parsed = yaml.load(content)
+              if (!Array.isArray(parsed)) return `${loc}: must be a YAML array`
+              return undefined
+            } catch (err) {
+              return `${loc}: YAML parse error — ${String(err)}`
+            }
+          }
+          return undefined // no file = OK
+        },
+      },
+      {
+        name: "POLLERS.yaml syntax",
+        run: () => {
+          const locations: string[] = []
+          try { locations.push(path.join(Instance.directory, ".spawnbot", "POLLERS.yaml")) } catch { /* no instance */ }
+          locations.push(path.join(Global.Path.config, "POLLERS.yaml"))
+
+          for (const loc of locations) {
+            if (!fs.existsSync(loc)) continue
+            try {
+              const content = fs.readFileSync(loc, "utf-8")
+              const parsed = yaml.load(content)
+              if (!Array.isArray(parsed)) return `${loc}: must be a YAML array`
+              return undefined
+            } catch (err) {
+              return `${loc}: YAML parse error — ${String(err)}`
+            }
+          }
+          return undefined // no file = OK
         },
       },
       {
@@ -103,7 +171,7 @@ export const DoctorCommand = cmd({
       if (!error) {
         prompts.log.success(check.name)
         passed++
-      } else if (error.includes("will use default") || error.includes("will be loaded")) {
+      } else if (error.includes("will use default") || error.includes("will be loaded") || error.includes("will create")) {
         prompts.log.warn(`${check.name}: ${error}`)
         warned++
       } else {

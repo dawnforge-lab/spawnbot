@@ -118,7 +118,9 @@ export namespace PollerManager {
       // Update state
       running.state = result.newState
       if (saveState) {
-        await saveState(name, result.newState)
+        await saveState(name, result.newState).catch((err) => {
+          log.error("poller state save failed — state may be lost on restart", { name, error: err })
+        })
       }
 
       if (result.events.length > 0) {

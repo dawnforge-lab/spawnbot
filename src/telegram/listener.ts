@@ -100,6 +100,37 @@ export namespace TelegramListener {
     }
   }
 
+  /** Enqueue an event or notify the user if the queue is full */
+  async function enqueueOrReply(ctx: Context, event: InputQueue.InputEvent): Promise<void> {
+    const accepted = InputQueue.enqueue(event)
+    if (!accepted) {
+      await ctx.reply("I'm currently busy processing other messages. Please try again shortly.").catch((err) => {
+        log.warn("failed to send queue-full reply", { error: err })
+      })
+    }
+  }
+
+  /** Retry a Telegram API call with exponential backoff for transient errors */
+  async function retryTelegram<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+    let lastError: unknown
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn()
+      } catch (err: any) {
+        lastError = err
+        const status = err?.error_code ?? err?.status
+        if (status === 429 || status >= 500 || err?.code === "ECONNRESET" || err?.code === "ETIMEDOUT") {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
+          log.warn("telegram API retry", { attempt, delay, error: err?.message })
+          await new Promise((r) => setTimeout(r, delay))
+          continue
+        }
+        throw err
+      }
+    }
+    throw lastError
+  }
+
   function registerHandlers() {
     if (!bot) return
 
@@ -127,7 +158,7 @@ export namespace TelegramListener {
         timestamp: Date.now(),
       }
 
-      InputQueue.enqueue(event)
+      await enqueueOrReply(ctx, event)
     })
 
     bot.on("message:photo", async (ctx) => {
@@ -139,11 +170,14 @@ export namespace TelegramListener {
       const filePath = await downloadFile(largest.file_id, `photo_${largest.file_id}.jpg`)
 
       const caption = ctx.message.caption ?? ""
+      if (!filePath) {
+        await ctx.reply("Photo download failed. I'll still process your message but won't be able to see the image.").catch(() => {})
+      }
       const content = filePath
         ? `${caption ? caption + "\n\n" : ""}[Photo saved to ${filePath} — read and analyze this image]`
         : caption || "[photo received but download failed]"
 
-      InputQueue.enqueue({
+      await enqueueOrReply(ctx, {
         id: ulid(),
         source: "telegram",
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
@@ -169,11 +203,14 @@ export namespace TelegramListener {
       const filePath = await downloadFile(doc.file_id, filename)
 
       const caption = ctx.message.caption ?? ""
+      if (!filePath) {
+        await ctx.reply(`Document "${filename}" download failed. I'll still process your message but won't be able to read the file.`).catch(() => {})
+      }
       const content = filePath
         ? `${caption ? caption + "\n\n" : ""}[File "${filename}" saved to ${filePath} — read and analyze this file]`
         : `${caption ? caption + "\n\n" : ""}[Document "${filename}" received but download failed]`
 
-      InputQueue.enqueue({
+      await enqueueOrReply(ctx, {
         id: ulid(),
         source: "telegram",
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
@@ -210,10 +247,11 @@ export namespace TelegramListener {
       } else if (filePath) {
         content = `[Voice message (${voice.duration}s) saved to ${filePath} — transcription unavailable, analyze this audio file]`
       } else {
+        await ctx.reply("Voice message download failed.").catch(() => {})
         content = "[Voice message received but download failed]"
       }
 
-      InputQueue.enqueue({
+      await enqueueOrReply(ctx, {
         id: ulid(),
         source: "telegram",
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
@@ -241,11 +279,14 @@ export namespace TelegramListener {
       const filePath = await downloadFile(video.file_id, filename)
 
       const caption = ctx.message.caption ?? ""
+      if (!filePath) {
+        await ctx.reply("Video download failed. I'll still process your message but won't be able to see the video.").catch(() => {})
+      }
       const content = filePath
         ? `${caption ? caption + "\n\n" : ""}[Video "${filename}" (${video.duration}s) saved to ${filePath}]`
         : `${caption ? caption + "\n\n" : ""}[Video received but download failed]`
 
-      InputQueue.enqueue({
+      await enqueueOrReply(ctx, {
         id: ulid(),
         source: "telegram",
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
@@ -269,7 +310,7 @@ export namespace TelegramListener {
       if (!isAllowed(ctx)) return
 
       const sticker = ctx.message.sticker
-      InputQueue.enqueue({
+      await enqueueOrReply(ctx, {
         id: ulid(),
         source: "telegram",
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
@@ -319,11 +360,13 @@ export namespace TelegramListener {
 
     let lastMessageId: number | undefined
     for (const chunk of chunks) {
-      const sent = await bot.api.sendMessage(target, chunk, {
-        parse_mode: "Markdown",
-      }).catch(async () => {
-        // Retry without Markdown if parsing fails
-        return bot!.api.sendMessage(target, chunk)
+      const sent = await retryTelegram(async () => {
+        return bot!.api.sendMessage(target, chunk, {
+          parse_mode: "Markdown",
+        }).catch(async () => {
+          // Retry without Markdown if parsing fails
+          return bot!.api.sendMessage(target, chunk)
+        })
       })
       lastMessageId = sent.message_id
     }
@@ -341,9 +384,11 @@ export namespace TelegramListener {
     const target = chatId ?? ownerChatId
     if (!target) return undefined
 
-    const sent = await bot.api.sendPhoto(target, photo, {
-      caption,
-      parse_mode: "Markdown",
+    const sent = await retryTelegram(async () => {
+      return bot!.api.sendPhoto(target, photo, {
+        caption,
+        parse_mode: "Markdown",
+      })
     })
     return sent.message_id
   }

@@ -6,43 +6,55 @@ import * as prompts from "./prompts"
 const log = Log.create({ service: "autonomy.idle" })
 
 export namespace IdleLoop {
+  export interface Config {
+    /** Base idle interval in ms (default: 30 min) */
+    baseInterval?: number
+    /** Escalation threshold in ms (default: 2h) */
+    escalationThreshold?: number
+    /** Warning threshold in ms (default: 6h) */
+    warningThreshold?: number
+    /** How often to check in ms (default: 1 min) */
+    checkInterval?: number
+  }
+
   let timer: ReturnType<typeof setInterval> | undefined
   let lastActivity = Date.now()
-
-  // Escalation thresholds (in ms)
-  const BASE_INTERVAL = 30 * 60 * 1000 // 30 min
-  const ESCALATION_THRESHOLD = 2 * 60 * 60 * 1000 // 2h
-  const WARNING_THRESHOLD = 6 * 60 * 60 * 1000 // 6h
-
-  const CHECK_INTERVAL = 60 * 1000 // check every minute if we should fire
+  let cfg: Required<Config>
 
   /** Call this whenever there's user/channel activity */
   export function touch() {
     lastActivity = Date.now()
   }
 
-  export function start() {
+  export function start(opts?: Config) {
     if (timer) return
     lastActivity = Date.now()
+
+    cfg = {
+      baseInterval: opts?.baseInterval ?? 30 * 60 * 1000,
+      escalationThreshold: opts?.escalationThreshold ?? 2 * 60 * 60 * 1000,
+      warningThreshold: opts?.warningThreshold ?? 6 * 60 * 60 * 1000,
+      checkInterval: opts?.checkInterval ?? 60 * 1000,
+    }
 
     timer = setInterval(() => {
       const idle = Date.now() - lastActivity
 
-      if (idle >= WARNING_THRESHOLD) {
+      if (idle >= cfg.warningThreshold) {
         enqueueIdleEvent(prompts.idleWarning(), "normal")
         // Reset so we don't spam — next check after another base interval
-        lastActivity = Date.now() - ESCALATION_THRESHOLD
-      } else if (idle >= ESCALATION_THRESHOLD) {
+        lastActivity = Date.now() - cfg.escalationThreshold
+      } else if (idle >= cfg.escalationThreshold) {
         enqueueIdleEvent(prompts.idleEscalation(), "low")
-      } else if (idle >= BASE_INTERVAL) {
+      } else if (idle >= cfg.baseInterval) {
         enqueueIdleEvent(prompts.idleBase(), "low")
       }
-    }, CHECK_INTERVAL)
+    }, cfg.checkInterval)
 
     log.info("idle loop started", {
-      baseInterval: BASE_INTERVAL / 1000 + "s",
-      escalation: ESCALATION_THRESHOLD / 1000 + "s",
-      warning: WARNING_THRESHOLD / 1000 + "s",
+      baseInterval: cfg.baseInterval / 1000 + "s",
+      escalation: cfg.escalationThreshold / 1000 + "s",
+      warning: cfg.warningThreshold / 1000 + "s",
     })
   }
 

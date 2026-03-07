@@ -49,8 +49,9 @@ export namespace InputRouter {
     log.info("input router started")
 
     while (running) {
+      let event: InputQueue.InputEvent | undefined
       try {
-        const event = await InputQueue.dequeue(abortController.signal)
+        event = await InputQueue.dequeue(abortController.signal)
         log.info("processing event", {
           id: event.id,
           source: event.source,
@@ -62,21 +63,31 @@ export namespace InputRouter {
           continue
         }
 
-        const input = formatInput(event)
         const response = await handler(event)
 
-        if (response && responseCallback) {
+        if (response && responseCallback && event) {
           await responseCallback(event, response).catch((err) => {
             log.error("response delivery failed", {
-              id: event.id,
-              source: event.source,
+              id: event!.id,
+              source: event!.source,
               error: err,
             })
           })
         }
       } catch (err: any) {
         if (err?.name === "AbortError" || !running) break
-        log.error("event processing error", { error: err })
+        log.error("event processing error", {
+          id: event?.id,
+          source: event?.source,
+          error: err,
+        })
+        // Deliver error back to the source so the user knows
+        if (event && responseCallback) {
+          const errorMsg = `I encountered an error processing your message. Error: ${err?.message ?? String(err)}`
+          await responseCallback(event, errorMsg).catch((deliveryErr) => {
+            log.error("failed to deliver error response", { error: deliveryErr })
+          })
+        }
       }
     }
 

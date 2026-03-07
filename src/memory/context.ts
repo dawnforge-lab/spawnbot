@@ -21,7 +21,13 @@ export async function buildMemoryContext(
   if (!userInput.trim()) return undefined
 
   const charBudget = tokenBudget * CHARS_PER_TOKEN
-  const memories = await Memory.recall({ query: userInput, limit: 20 })
+  let memories: Awaited<ReturnType<typeof Memory.recall>>
+  try {
+    memories = await Memory.recall({ query: userInput, limit: 20 })
+  } catch (err) {
+    log.error("memory recall failed — continuing without memory context", { error: err })
+    return undefined
+  }
 
   if (memories.length === 0) return undefined
 

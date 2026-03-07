@@ -16,6 +16,7 @@ import PROMPT_ASK from "./prompt/ask.txt"
 import PROMPT_ORCHESTRATOR from "./prompt/orchestrator.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
+import PROMPT_CODER from "./prompt/coder.txt"
 import { PermissionNext } from "@/permission/next"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@/global"
@@ -244,6 +245,7 @@ export namespace Agent {
       coder: {
         name: "coder",
         description: "Coding agent for implementing features, fixing bugs, and editing files. Delegates here for all code changes.",
+        prompt: PROMPT_CODER,
         permission: PermissionNext.merge(
           defaults,
           PermissionNext.fromConfig({
