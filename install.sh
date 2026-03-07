@@ -86,9 +86,27 @@ else
 fi
 
 # --- Step 4: Install dependencies ---
-info "Installing dependencies..."
+info "Installing dependencies (this may take a minute)..."
 cd "$INSTALL_DIR"
-bun install
+
+MAX_ATTEMPTS=3
+for attempt in $(seq 1 $MAX_ATTEMPTS); do
+  if timeout 120 bun install --frozen-lockfile 2>/dev/null || timeout 120 bun install; then
+    break
+  fi
+
+  if [[ $attempt -lt $MAX_ATTEMPTS ]]; then
+    warn "bun install attempt $attempt/$MAX_ATTEMPTS failed or timed out. Retrying..."
+    rm -rf node_modules
+  else
+    error "bun install failed after $MAX_ATTEMPTS attempts."
+    echo ""
+    echo "  Try manually:"
+    echo "    cd $INSTALL_DIR && bun install"
+    echo ""
+    exit 1
+  fi
+done
 
 # --- Step 5: Add to PATH ---
 BIN_DIR="$INSTALL_DIR/bin"
