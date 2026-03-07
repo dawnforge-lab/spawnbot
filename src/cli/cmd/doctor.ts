@@ -181,7 +181,7 @@ export const DoctorCommand = cmd({
     }
 
     prompts.outro(
-      `${passed} passed, ${warned} warnings, ${failed} errors${failed > 0 ? " — run 'spawnbot setup' to fix" : ""}`,
+      `${passed} passed, ${warned} warnings, ${failed} errors${failed > 0 ? " — run 'spawnbot' and type /setup to fix" : ""}`,
     )
   },
 })

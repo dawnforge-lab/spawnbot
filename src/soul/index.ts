@@ -51,7 +51,7 @@ export function loadSoul(opts?: { required?: boolean }): string {
 
   if (!soulPath) {
     if (opts?.required) {
-      throw new Error("SOUL.md not found. Run 'spawnbot setup' to create one.")
+      throw new Error("SOUL.md not found. Run 'spawnbot' and type /setup to create one.")
     }
     return DEFAULT_SOUL
   }

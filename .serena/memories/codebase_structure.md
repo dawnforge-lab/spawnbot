@@ -59,7 +59,8 @@ kilocode/       # Kilo-specific branding/telemetry (TO STRIP)
 - **Daemon system**: `src/daemon/index.ts` — loads env, starts ngrok tunnel, creates auto-approve session, wires input router → SessionPrompt
 - **Telegram integration**: `src/telegram/listener.ts` — grammY with webhook (ngrok) or long polling modes
 - **Tunnel**: `src/tunnel/index.ts` — ngrok SDK integration
-- **Setup wizard**: `src/cli/cmd/setup.ts` — interactive onboarding with LLM co-creation (provider setup → API key validation → multi-turn identity interview → Telegram validation → file generation)
+- **Setup wizard**: `src/cli/cmd/setup.ts — thin redirect that launches TUI with `/setup` prompt
+- src/commands/setup.md — `/setup` command template (LLM-driven onboarding conversation)` — interactive onboarding with LLM co-creation (provider setup → API key validation → multi-turn identity interview → Telegram validation → file generation)
 - **Doctor**: `src/cli/cmd/doctor.ts` — config/env diagnostics
 - **Status API**: `src/server/routes/status.ts` — uptime, queue, cron, pollers, tunnel, memory stats
 - **RSS poller**: `src/autonomy/pollers/rss.ts` — factory for RSS/Atom feed pollers, configured via `POLLERS.yaml`

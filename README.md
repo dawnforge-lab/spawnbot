@@ -31,7 +31,7 @@ The installer will:
 2. Install all dependencies
 3. Add `spawnbot` to your PATH
 
-Then run `spawnbot setup` to configure your agent.
+Then run `spawnbot` and type `/setup` to configure your agent.
 
 ### Manual Install
 
@@ -40,7 +40,7 @@ git clone https://github.com/dawnforge-lab/spawnbot.git ~/.spawnbot
 cd ~/.spawnbot
 bun install
 export PATH="$HOME/.spawnbot/bin:$PATH"  # add to ~/.bashrc or ~/.zshrc
-spawnbot setup
+spawnbot
 ```
 
 ## Requirements
@@ -52,23 +52,21 @@ spawnbot setup
 
 ## Getting Started
 
-### 1. Run the setup wizard
+### 1. Launch spawnbot
 
 ```bash
-spawnbot setup
+spawnbot
 ```
 
-The wizard walks you through 10 steps:
-1. Choose LLM provider + validate API key
-2. Name your agent
-3. Co-create personality with the LLM (multi-turn interview)
-4. Configure Telegram (bot token + owner ID)
-5. Optional: OpenAI API key for Whisper + embeddings
-6. Gemini safety filters (Google provider only)
-7. Schedule cron jobs
-8. Choose agent model
-9. Select optional skills (image generation, TTS, Gmail, etc.)
-10. Autostart configuration
+This opens the TUI. Connect a provider when prompted, then type `/setup` to start the onboarding wizard.
+
+The `/setup` command walks you through an interactive conversation to:
+- Name your agent and co-create its personality with the LLM
+- Configure Telegram (bot token + owner ID)
+- Add optional API keys (OpenAI for Whisper + embeddings)
+- Schedule cron jobs
+- Install optional skills (image generation, TTS, Gmail, etc.)
+- Set up autostart (systemd/launchd)
 
 This creates `.spawnbot/` in your project directory with:
 - `SOUL.md` — Agent personality and behavior (co-created with LLM)
@@ -94,7 +92,8 @@ Send a message to your bot. It has full access to your project directory, all to
 
 | Command | Description |
 |---------|-------------|
-| `spawnbot setup` | Interactive onboarding wizard |
+| `spawnbot` | Launch the TUI (type `/setup` for first-time config) |
+| `spawnbot setup` | Launch TUI and start onboarding wizard |
 | `spawnbot start` | Start the agent in the background |
 | `spawnbot stop` | Stop the agent |
 | `spawnbot restart` | Restart the agent |
@@ -152,7 +151,7 @@ You are Jarvis, a sharp and efficient AI assistant.
 - Respond on Telegram within one message when possible.
 ```
 
-In daemon mode, SOUL.md is **required** — the daemon will throw if it's missing. Run `spawnbot setup` to create one.
+In daemon mode, SOUL.md is **required** — the daemon will throw if it's missing. Run `spawnbot` and type `/setup` to create one.
 
 ### CRONS.yaml
 
@@ -380,7 +379,7 @@ The agent will start a new conversation on the next start, but memories persist.
 | Problem | Solution |
 |---------|----------|
 | Agent won't start | Run `spawnbot doctor` to identify missing config |
-| "SOUL.md not found" | Run `spawnbot setup` or create `.spawnbot/SOUL.md` |
+| "SOUL.md not found" | Run `spawnbot` and type `/setup`, or create `.spawnbot/SOUL.md` |
 | "No LLM provider API key" | Add `*_API_KEY` to `.spawnbot/.env` |
 | Telegram not connecting | Check `TELEGRAM_BOT_TOKEN` in `.env` |
 | Queue full messages | Agent is busy — messages are processed sequentially |

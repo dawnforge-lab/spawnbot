@@ -221,6 +221,10 @@ export namespace Config {
       log.debug("loading config from KILO_CONFIG_DIR", { path: Flag.KILO_CONFIG_DIR })
     }
 
+    // Load built-in commands (before user dirs so user overrides take precedence)
+    const builtinCommandsDir = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "commands")
+    result.command = mergeDeep(result.command ?? {}, await loadCommand(builtinCommandsDir))
+
     const deps = []
 
     for (const dir of unique(directories)) {

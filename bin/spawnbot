@@ -145,10 +145,11 @@ cmd_logs() {
 cmd_help() {
   echo "spawnbot — autonomous AI agent"
   echo ""
-  echo "Usage: spawnbot <command> [options]"
+  echo "Usage: spawnbot [command] [options]"
   echo ""
   echo "Commands:"
-  echo "  setup        Run the onboarding wizard"
+  echo "  (default)    Launch the TUI (type /setup for first-time config)"
+  echo "  setup        Launch TUI and start onboarding wizard"
   echo "  start        Start the daemon in the background"
   echo "  stop         Stop the daemon"
   echo "  restart      Restart the daemon"
@@ -165,7 +166,7 @@ cmd_help() {
   echo "  session      Manage sessions"
   echo "  --help       Show all commands"
   echo ""
-  echo "Get started:  spawnbot setup"
+  echo "Get started:  spawnbot"
 }
 
 # --- Main ---
