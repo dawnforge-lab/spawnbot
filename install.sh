@@ -35,7 +35,7 @@ echo ""
 echo -e "${BOLD}  spawnbot installer${RESET}"
 echo ""
 
-# --- Step 1: Check/install bun ---
+# --- Step 1: Check for bun ---
 # Bun may be installed but not in PATH (e.g. fresh install, bashrc not sourced)
 if ! command -v bun &>/dev/null && [[ -f "$HOME/.bun/bin/bun" ]]; then
   export BUN_INSTALL="$HOME/.bun"
@@ -45,18 +45,15 @@ fi
 if command -v bun &>/dev/null; then
   info "bun is already installed ($(bun --version))"
 else
-  info "Installing bun..."
-  curl -fsSL https://bun.sh/install | bash
-
-  # Source bun into current shell
-  export BUN_INSTALL="$HOME/.bun"
-  export PATH="$BUN_INSTALL/bin:$PATH"
-
-  if ! command -v bun &>/dev/null; then
-    error "bun installation failed. Please install manually: https://bun.sh"
-    exit 1
-  fi
-  success "bun installed ($(bun --version))"
+  error "bun is required but not installed."
+  echo ""
+  echo "  Install bun first, then re-run this installer:"
+  echo ""
+  echo "    curl -fsSL https://bun.sh/install | bash"
+  echo "    source ~/.bashrc"
+  echo "    curl -fsSL https://raw.githubusercontent.com/dawnforge-lab/spawnbot/main/install.sh | bash"
+  echo ""
+  exit 1
 fi
 
 # --- Step 2: Check/install git ---

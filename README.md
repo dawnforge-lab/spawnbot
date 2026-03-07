@@ -16,18 +16,22 @@ Built on [Kilo Code CLI](https://github.com/Kilo-Org/kilocode) (which builds on 
 
 ## Quick Install
 
-One command to install everything:
+Two commands to install everything:
 
 ```bash
+# 1. Install bun (skip if you already have it)
+curl -fsSL https://bun.sh/install | bash && source ~/.bashrc
+
+# 2. Install spawnbot
 curl -fsSL https://raw.githubusercontent.com/dawnforge-lab/spawnbot/main/install.sh | bash
 ```
 
-This will:
-1. Install [bun](https://bun.sh/) if you don't have it
-2. Clone spawnbot to `~/.spawnbot`
-3. Install all dependencies
-4. Add `spawnbot` to your PATH
-5. Launch the setup wizard
+The installer will:
+1. Clone spawnbot to `~/.spawnbot`
+2. Install all dependencies
+3. Add `spawnbot` to your PATH
+
+Then run `spawnbot setup` to configure your agent.
 
 ### Manual Install
 
