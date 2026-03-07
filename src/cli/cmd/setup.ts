@@ -340,7 +340,7 @@ export const SetupCommand = cmd({
     const provider = PROVIDERS.find((p) => p.id === providerId)!
     const isLocal = provider.category === "Local"
 
-    let apiKey: string
+    let apiKey = ""
     if (isLocal) {
       // Local providers (Ollama, LM Studio) don't need API keys
       apiKey = "local"
@@ -354,7 +354,33 @@ export const SetupCommand = cmd({
         prompts.log.warn("Make sure it's running before starting the daemon. Continuing anyway.")
       }
     } else {
-      while (true) {
+      // Check if the API key is already set in the environment
+      const envKey = process.env[provider.envHint]
+      if (envKey) {
+        prompts.log.info(`Found ${provider.envHint} in environment.`)
+        const useEnv = unwrap(
+          await prompts.confirm({
+            message: `Use the existing ${provider.envHint} from your environment?`,
+            initialValue: true,
+          }),
+        )
+        if (useEnv) {
+          apiKey = envKey
+          const s = prompts.spinner()
+          s.start("Validating API key...")
+          const valid = await validateApiKey(providerId, apiKey)
+          if (valid) {
+            s.stop("API key valid!")
+          } else {
+            s.stop("API key invalid.")
+            prompts.log.warn("The key from your environment didn't work. Please enter one manually.")
+            apiKey = "" // force manual entry below
+          }
+        }
+      }
+
+      while (!apiKey) {
+        prompts.log.info(`Tip: if pasting is truncated, set ${provider.envHint} in your environment first, then re-run setup.`)
         apiKey = unwrap(
           await prompts.text({
             message: `Enter your ${provider.name} API key:`,
@@ -374,6 +400,7 @@ export const SetupCommand = cmd({
         }
         s.stop("API key invalid — could not reach the provider.")
         prompts.log.error("Please check your key and try again.")
+        apiKey = "" // retry
       }
 
       // Save the API key
