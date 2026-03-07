@@ -16,12 +16,17 @@ SPAWNBOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PID_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/spawnbot/daemon.pid"
 LOG_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/spawnbot/log"
 
-# Ensure bun is available
+# Ensure bun is available (may need to source ~/.bun if just installed)
 check_bun() {
   if ! command -v bun &>/dev/null; then
-    echo "Error: bun is not installed."
-    echo "Install it with: curl -fsSL https://bun.sh/install | bash"
-    exit 1
+    if [[ -f "$HOME/.bun/bin/bun" ]]; then
+      export BUN_INSTALL="$HOME/.bun"
+      export PATH="$BUN_INSTALL/bin:$PATH"
+    else
+      echo "Error: bun is not installed."
+      echo "Install it with: curl -fsSL https://bun.sh/install | bash"
+      exit 1
+    fi
   fi
 }
 
