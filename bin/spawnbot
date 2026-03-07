@@ -33,7 +33,7 @@ check_bun() {
 # Run the TypeScript CLI via bun
 run_cli() {
   check_bun
-  exec bun run --config "$SPAWNBOT_DIR/bunfig.toml" --conditions=browser "$SPAWNBOT_DIR/src/index.ts" "$@"
+  exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" "$@"
 }
 
 # Get daemon PID (returns 0 if not running)
@@ -66,7 +66,7 @@ cmd_start() {
   mkdir -p "$(dirname "$PID_FILE")" "$LOG_DIR"
 
   # Start daemon in background, redirect output to log
-  nohup bun run --config "$SPAWNBOT_DIR/bunfig.toml" --conditions=browser "$SPAWNBOT_DIR/src/index.ts" daemon "$@" \
+  nohup bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" daemon "$@" \
     >> "$LOG_DIR/daemon.log" 2>&1 &
   local daemon_pid=$!
 
