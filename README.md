@@ -16,8 +16,6 @@ Built on [Kilo Code CLI](https://github.com/Kilo-Org/kilocode) (which builds on 
 
 ## Quick Install
 
-Two commands to install everything:
-
 ```bash
 # 1. Install bun (skip if you already have it)
 curl -fsSL https://bun.sh/install | bash && source ~/.bashrc
@@ -30,8 +28,7 @@ The installer will:
 1. Clone spawnbot to `~/.spawnbot`
 2. Install all dependencies
 3. Add `spawnbot` to your PATH
-
-Then run `spawnbot` and type `/setup` to configure your agent.
+4. Create a default `SOUL.md` for you to review
 
 ### Manual Install
 
@@ -43,13 +40,6 @@ export PATH="$HOME/.spawnbot/bin:$PATH"  # add to ~/.bashrc or ~/.zshrc
 spawnbot
 ```
 
-## Requirements
-
-- A Telegram bot token (from [@BotFather](https://t.me/BotFather))
-- An LLM provider API key (e.g. `ANTHROPIC_API_KEY`)
-- Optional: [ngrok](https://ngrok.com/) account for Telegram webhooks
-- Optional: `OPENAI_API_KEY` for voice transcription (Whisper) and vector embeddings
-
 ## Getting Started
 
 ### 1. Launch spawnbot
@@ -60,6 +50,15 @@ spawnbot
 
 This opens the TUI. Connect a provider when prompted, then type `/setup` to start the onboarding wizard.
 
+### 2. That's it
+
+There's only one command you need to remember: `spawnbot`.
+
+- **First run** — starts the daemon in the background + opens the TUI attached to it
+- **Close the terminal** — daemon keeps running, Telegram still works
+- **Run `spawnbot` again** — reconnects to the running daemon session
+- **`spawnbot stop`** — stops the background daemon
+
 The `/setup` command walks you through an interactive conversation to:
 - Name your agent and co-create its personality with the LLM
 - Configure Telegram (bot token + owner ID)
@@ -69,51 +68,80 @@ The `/setup` command walks you through an interactive conversation to:
 - Set up autostart (systemd/launchd)
 
 This creates `.spawnbot/` in your project directory with:
-- `SOUL.md` — Agent personality and behavior (co-created with LLM)
+- `SOUL.md` — Operating instructions + agent identity (co-created with LLM)
 - `USER.md` — Information about you
 - `GOALS.md` — Current objectives
 - `PLAYBOOK.md` — Action templates
 - `.env` — API keys and secrets
 - `spawnbot.json` — Provider and model config
 
-### 2. Start the agent
+### 3. Talk to your agent
 
-```bash
-spawnbot start
-```
+- **Terminal** — just type in the TUI
+- **Telegram** — send a message to your bot
 
-That's it. Your agent is now running in the background, connected to Telegram, and ready to chat.
-
-### 3. Talk to your agent on Telegram
-
-Send a message to your bot. It has full access to your project directory, all tools, and its memory system.
+Both flow into the same conversation. The agent sees `[telegram]` prefix for Telegram messages so it knows the source.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `spawnbot` | Launch the TUI (type `/setup` for first-time config) |
-| `spawnbot setup` | Launch TUI and start onboarding wizard |
-| `spawnbot start` | Start the agent in the background |
-| `spawnbot stop` | Stop the agent |
-| `spawnbot restart` | Restart the agent |
-| `spawnbot status` | Check if the agent is running |
+| `spawnbot` | Start daemon (if needed) + open TUI |
+| `spawnbot stop` | Stop the background daemon |
+| `spawnbot status` | Check if the daemon is running |
 | `spawnbot logs` | Show recent log output |
 | `spawnbot logs -f` | Follow logs in real time |
 | `spawnbot doctor` | Check configuration and dependencies |
 | `spawnbot run "message"` | One-shot: send a message and get a response |
 | `spawnbot reset` | Clear conversation history (fresh start) |
 
+### TUI Commands
+
+Type these in the TUI prompt:
+
+| Command | Description |
+|---------|-------------|
+| `/setup` | Run the onboarding wizard |
+| `/help` | Show help and keyboard shortcuts |
+| `/connect` | Add or manage LLM provider API keys |
+| `/models` | Switch between available models |
+| `/compact` | Summarize a long session near context limits |
+| `/undo` / `/redo` | Undo or redo the last message and file changes |
+| `/new` | Start a fresh conversation session |
+| `/sessions` | List and continue previous conversations |
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+V` | Paste image from clipboard |
+| `Ctrl+Shift+V` | Paste text from clipboard |
+| `Ctrl+T` | Cycle model variants |
+| `Tab` | Cycle agents (Build, Plan, etc.) |
+| `Ctrl+P` | Open command palette |
+| `Ctrl+X E` | Open external editor |
+| `Shift+Enter` | New line in prompt |
+| `Escape` | Stop the AI mid-response |
+| `Ctrl+C` | Clear input (press twice to exit) |
+| `PageUp/PageDown` | Scroll conversation |
+
 ### Advanced Commands
 
 | Command | Description |
 |---------|-------------|
-| `spawnbot daemon` | Start in foreground (for debugging) |
+| `spawnbot daemon` | Start daemon in foreground (for debugging) |
 | `spawnbot daemon --dry-run` | Validate config and exit |
 | `spawnbot auth` | Manage LLM provider credentials |
 | `spawnbot models` | List available models |
 | `spawnbot session` | Manage sessions |
 | `spawnbot --help` | Show all available commands |
+
+## Requirements
+
+- An LLM provider API key (e.g. `ANTHROPIC_API_KEY`)
+- Optional: A Telegram bot token (from [@BotFather](https://t.me/BotFather))
+- Optional: [ngrok](https://ngrok.com/) account for Telegram webhooks
+- Optional: `OPENAI_API_KEY` for voice transcription (Whisper) and vector embeddings
 
 ## Configuration
 
@@ -123,7 +151,7 @@ All config lives in `.spawnbot/` (project-level) or `~/.config/spawnbot/` (globa
 
 | File | Purpose |
 |------|---------|
-| `SOUL.md` | Agent personality, behavior rules, core identity |
+| `SOUL.md` | Operating instructions + agent identity |
 | `USER.md` | Information about you (the owner) |
 | `GOALS.md` | Current objectives and targets |
 | `PLAYBOOK.md` | Action templates and procedures |
@@ -135,21 +163,36 @@ All config lives in `.spawnbot/` (project-level) or `~/.config/spawnbot/` (globa
 
 ### SOUL.md
 
-This is the most important file. It's inlined into the system prompt on every turn. Define your agent's personality, rules, and behavior here.
+The most important file. It's inlined into the system prompt on every turn.
+
+Everything above the `---` separator is **operating instructions** (tools, code style, git rules, safety). Everything below is **identity** (name, personality, stop phrase). The `/setup` command only modifies the identity section — it never overwrites your operating instructions.
 
 ```markdown
+# Spawnbot
+
+You are a capable, autonomous AI agent...
+
+## Tools
+- Use dedicated tools over bash...
+
+## Working with code
+- Read code before modifying it...
+
+---
+
+# Identity
+
 You are Jarvis, a sharp and efficient AI assistant.
 
-# Personality
+## Personality
 - Direct and concise. No filler.
 - Proactive — anticipate what I need next.
-- When unsure, investigate before asking.
 
-# Rules
-- Never push to main without asking.
-- Always run tests before committing.
-- Respond on Telegram within one message when possible.
+## Stop Phrase
+The phrase "Jarvis, stand down" immediately halts all autonomous actions.
 ```
+
+You can edit this file directly at any time. Changes take effect on the next conversation turn.
 
 In daemon mode, SOUL.md is **required** — the daemon will throw if it's missing. Run `spawnbot` and type `/setup` to create one.
 
@@ -185,14 +228,14 @@ New feed items are enqueued as events for the agent to process.
 ### .env
 
 ```bash
-# Required
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
-TELEGRAM_OWNER_ID=12345678
-
 # LLM Provider (at least one required)
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_GENERATIVE_AI_API_KEY=...
+
+# Telegram (optional)
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+TELEGRAM_OWNER_ID=12345678
 
 # Optional
 NGROK_AUTHTOKEN=2abc...           # Enables webhook mode
@@ -299,26 +342,28 @@ Only SOUL.md changes invalidate the prompt cache. Other docs (USER.md, GOALS.md,
 ## Architecture
 
 ```
-spawnbot start
-  ├── Pre-flight validation (SOUL.md, API key, Telegram)
-  ├── SOUL.md → System prompt (personality, rules)
-  ├── Session (SQLite) → Persistent conversation + auto-rotation
-  ├── Memory (SQLite + FTS5 + vectors) → Long-term recall with auto-inject
-  ├── Input Queue (4-level priority) → Routes events to the LLM session
-  │     ├── Telegram messages (normal priority)
-  │     ├── Cron jobs (normal priority)
-  │     ├── Poller events (normal priority)
-  │     └── Idle loop prompts (low priority)
-  ├── Error handling → Errors delivered back to user, not swallowed
-  ├── Telegram (grammY) → Webhook (ngrok) or long polling + retry
-  ├── Tools (22 built-in + custom) → bash, read, write, memory, telegram, etc.
-  ├── Skills (built-in + user) → On-demand prompt knowledge
+spawnbot
+  ├── Daemon (background)
+  │     ├── Pre-flight validation (SOUL.md, API key)
+  │     ├── Session (SQLite) → Persistent conversation + auto-rotation
+  │     ├── Input Queue (4-level priority) → Routes events to the LLM session
+  │     │     ├── Telegram messages (normal priority)
+  │     │     ├── Cron jobs (normal priority)
+  │     │     ├── Poller events (normal priority)
+  │     │     └── Idle loop prompts (low priority)
+  │     ├── Telegram (grammY) → Webhook (ngrok) or long polling
+  │     └── Autonomy → Cron, pollers, idle loop, memory decay
+  ├── TUI (foreground, attaches to daemon)
+  │     ├── Interactive chat → Same session as daemon
+  │     ├── SOUL.md → System prompt (operating instructions + identity)
+  │     ├── Memory (SQLite + FTS5 + vectors) → Long-term recall with auto-inject
+  │     └── Tools (22 built-in + custom) → bash, read, write, memory, telegram, etc.
   └── Vercel AI SDK → Anthropic, OpenAI, Google, DeepSeek, Groq, etc.
 ```
 
 Key design decisions:
 - **No fallbacks** — Errors are transparent, never hidden. Config parse failures throw.
-- **Single process** — No subprocesses, no IPC. The LLM runs in-process via Vercel AI SDK.
+- **Single command** — `spawnbot` handles everything. Daemon auto-starts, TUI auto-attaches.
 - **SQLite for everything** — Sessions, messages, memories, state. One file, zero infrastructure.
 - **SOUL.md is king** — One file defines behavior. No scattered config.
 - **Self-managed** — The agent maintains its own SKILLS.md index and can create skills/tools at runtime.
@@ -380,10 +425,11 @@ The agent will start a new conversation on the next start, but memories persist.
 |---------|----------|
 | Agent won't start | Run `spawnbot doctor` to identify missing config |
 | "SOUL.md not found" | Run `spawnbot` and type `/setup`, or create `.spawnbot/SOUL.md` |
-| "No LLM provider API key" | Add `*_API_KEY` to `.spawnbot/.env` |
+| "No LLM provider API key" | Add `*_API_KEY` to `.spawnbot/.env` or use `/connect` in TUI |
 | Telegram not connecting | Check `TELEGRAM_BOT_TOKEN` in `.env` |
 | Queue full messages | Agent is busy — messages are processed sequentially |
 | YAML parse error | Fix syntax in `CRONS.yaml` or `POLLERS.yaml` |
+| Can't paste text | Use `Ctrl+Shift+V` for text, `Ctrl+V` for images |
 
 ## Updating
 
@@ -391,7 +437,7 @@ The agent will start a new conversation on the next start, but memories persist.
 cd ~/.spawnbot
 git pull
 bun install
-spawnbot restart
+spawnbot stop && spawnbot
 ```
 
 Or re-run the installer:

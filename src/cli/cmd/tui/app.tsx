@@ -567,7 +567,7 @@ function App() {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://kilo.ai/docs").catch(() => {})
+        open("https://github.com/dawnforge-lab/spawnbot").catch(() => {})
         dialog.clear()
       },
       category: "System",

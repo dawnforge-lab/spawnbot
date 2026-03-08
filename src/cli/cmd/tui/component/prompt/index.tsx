@@ -1161,6 +1161,12 @@ export function Prompt(props: PromptProps) {
                   <text fg={theme.text}>
                     {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
                   </text>
+                  <text fg={theme.text}>
+                    ctrl+v <span style={{ fg: theme.textMuted }}>paste image</span>
+                  </text>
+                  <text fg={theme.text}>
+                    ctrl+shift+v <span style={{ fg: theme.textMuted }}>paste text</span>
+                  </text>
                 </Match>
                 <Match when={store.mode === "shell"}>
                   <text fg={theme.text}>
