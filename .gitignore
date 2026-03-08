@@ -15,3 +15,16 @@ bun.lock
 # Generated config (created by spawnbot setup)
 config/SOUL.yaml
 config/config.yaml
+
+# Dev tools (not part of install)
+.serena/
+.claude/
+.mcp.json
+docs/
+CLAUDE.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

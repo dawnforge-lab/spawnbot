@@ -53,6 +53,16 @@ export function loadSoul(opts?: { required?: boolean }): string {
     if (opts?.required) {
       throw new Error("SOUL.md not found. Run 'spawnbot' and type /setup to create one.")
     }
+    // Write default SOUL.md to disk so users can see and edit it
+    try {
+      const dir = docsDir()
+      fs.mkdirSync(dir, { recursive: true })
+      const targetPath = path.join(dir, DOCS.soul)
+      fs.writeFileSync(targetPath, DEFAULT_SOUL + "\n", "utf-8")
+      log.info("created default SOUL.md", { path: targetPath })
+    } catch (e) {
+      log.debug("could not write default SOUL.md to disk", { error: e })
+    }
     return DEFAULT_SOUL
   }
 
