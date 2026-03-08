@@ -31,10 +31,10 @@ describe("soul", () => {
     expect(result).toContain("autonomous AI agent")
   })
 
-  test("default soul contains communication section", () => {
+  test("default soul contains output format section", () => {
     const result = loadSoul()
-    expect(result).toContain("## Communication")
-    expect(result).toContain("concise and direct")
+    expect(result).toContain("## Output format")
+    expect(result).toContain("terminal or Telegram")
   })
 
   test("default soul contains tools and code sections", () => {
