@@ -8,12 +8,15 @@ Create the `.spawnbot/` directory if it doesn't exist.
 
 ## Step 1: Check for existing config
 
-Check if `.spawnbot/SOUL.md` already exists. If it does:
-- Look for an `# Identity` section. If present, tell the user their agent already has an identity and ask if they want to reconfigure it.
-- If they decline, skip to Step 3 (Telegram).
-- If they want to reconfigure, you will ONLY replace the `# Identity` section and everything below it — NEVER touch the operational instructions above.
+Check if `.spawnbot/SOUL.md` already exists. Read it.
 
-If no SOUL.md exists, create one by writing the default operational instructions first (you'll add the identity section in Step 2).
+- The file has two sections separated by `---`: operational instructions above, identity below.
+- The user may have already edited the operational instructions. NEVER overwrite or modify anything above the `---` separator.
+- If an `# Identity` section exists below `---` (not just the default placeholder), tell the user their agent already has an identity and ask if they want to reconfigure it.
+- If they decline, skip to Step 3 (Telegram).
+- If they want to reconfigure, you will ONLY replace the `# Identity` section and everything below `---` — the operational instructions above MUST remain exactly as they are.
+
+If no SOUL.md exists at all, create `.spawnbot/` and copy the default from the installation. Then proceed.
 
 ## Step 2: Co-create agent identity
 
@@ -112,12 +115,16 @@ Show a summary of everything configured:
 - Skills installed
 - Autostart status
 
-Remind the user:
-- They can edit SOUL.md anytime to change both operational instructions and identity
-- The operational instructions (above the `---` separator) control how the agent works
-- The identity section (below `---`) defines who the agent is
+Tell the user to review `.spawnbot/SOUL.md` before starting the daemon:
+- The file has two sections separated by `---`
+- **Above `---`**: operational instructions — how the agent uses tools, writes code, handles git, safety rules. Review and tweak for your use case.
+- **Below `---`**: the identity we just created — personality, name, stop phrase
+- Edit anything you want. This is YOUR agent's brain. Changes take effect on the next message.
+
+Then remind them:
 - Run `spawnbot start` to launch the daemon
 - Run `spawnbot doctor` to verify the setup
+- All `.spawnbot/` files (USER.md, GOALS.md, PLAYBOOK.md) can be edited anytime
 
 ## Important rules
 

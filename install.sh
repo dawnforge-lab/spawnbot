@@ -162,6 +162,15 @@ esac
 # Make spawnbot available in current session
 export PATH="$BIN_DIR:$PATH"
 
+# --- Step 6: Create default SOUL.md ---
+SPAWNBOT_CONFIG="$HOME/.spawnbot"
+SOUL_FILE="$SPAWNBOT_CONFIG/SOUL.md"
+
+if [[ ! -f "$SOUL_FILE" ]]; then
+  mkdir -p "$SPAWNBOT_CONFIG"
+  cp "$INSTALL_DIR/src/soul/default-soul.txt" "$SOUL_FILE"
+fi
+
 echo ""
 success "spawnbot installed successfully!"
 echo ""
@@ -172,14 +181,21 @@ if [[ "$ADDED_TO_PATH" == "true" ]]; then
   echo ""
 fi
 
-info "To get started, run:"
+echo -e "${BOLD}Next steps:${RESET}"
 echo ""
-echo "  spawnbot"
+echo "  1. Review your agent's instructions:"
+echo -e "     ${CYAN}$SOUL_FILE${RESET}"
+echo "     Edit this file to customize how your agent works."
+echo "     Everything above --- controls behavior, below --- is identity."
 echo ""
-echo "Then type /setup in the chat to configure your agent."
+echo "  2. Launch spawnbot:"
+echo "     spawnbot"
+echo ""
+echo "  3. Type /setup to create your agent's identity"
+echo "     (this adds to SOUL.md without overwriting your edits)"
 echo ""
 
-# If stdin is a terminal (not piped), launch the TUI
+# If stdin is a terminal (not piped), offer to launch
 if [ -t 0 ]; then
   info "Starting spawnbot..."
   echo ""
