@@ -847,7 +847,13 @@ export function Prompt(props: PromptProps) {
                     })
                     return
                   }
-                  // If no image, let the default paste behavior continue
+                  // Insert text directly from clipboard — bracketed paste
+                  // doesn't work reliably in all terminals (e.g. GNOME Terminal)
+                  if (content?.mime === "text/plain" && content.data) {
+                    e.preventDefault()
+                    input.insertText(content.data)
+                    return
+                  }
                 }
                 if (keybind.match("input_clear", e) && store.prompt.input !== "") {
                   input.clear()
