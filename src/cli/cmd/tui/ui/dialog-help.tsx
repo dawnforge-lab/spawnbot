@@ -107,6 +107,24 @@ export function DialogHelp() {
 
       <box gap={0}>
         <text attributes={TextAttributes.BOLD} fg={accent}>
+          Daemon
+        </text>
+        <text fg={muted}>
+          The daemon runs in the background (Telegram, cron, autonomy).
+        </text>
+        <text fg={muted}>
+          spawnbot stop       Stop the daemon
+        </text>
+        <text fg={muted}>
+          spawnbot status     Check if daemon is running
+        </text>
+        <text fg={muted}>
+          spawnbot logs -f    Follow daemon logs
+        </text>
+      </box>
+
+      <box gap={0}>
+        <text attributes={TextAttributes.BOLD} fg={accent}>
           Config Files
         </text>
         <text fg={muted}>

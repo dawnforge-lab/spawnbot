@@ -54,9 +54,10 @@ This opens the TUI. Connect a provider when prompted, then type `/setup` to star
 
 There's only one command you need to remember: `spawnbot`.
 
-- **First run** — starts the daemon in the background + opens the TUI attached to it
+- **Very first run** — no provider configured yet, so it opens a standalone TUI. Use `/connect` to add an API key.
+- **After provider is set** — `spawnbot` starts the daemon in the background (Telegram, cron, autonomy) + opens the TUI attached to it
 - **Close the terminal** — daemon keeps running, Telegram still works
-- **Run `spawnbot` again** — reconnects to the running daemon session
+- **Run `spawnbot` again** — daemon already running, TUI just reconnects
 - **`spawnbot stop`** — stops the background daemon
 
 The `/setup` command walks you through an interactive conversation to:
@@ -88,6 +89,7 @@ Both flow into the same conversation. The agent sees `[telegram]` prefix for Tel
 |---------|-------------|
 | `spawnbot` | Start daemon (if needed) + open TUI |
 | `spawnbot stop` | Stop the background daemon |
+| `spawnbot restart` | Restart the daemon |
 | `spawnbot status` | Check if the daemon is running |
 | `spawnbot logs` | Show recent log output |
 | `spawnbot logs -f` | Follow logs in real time |
