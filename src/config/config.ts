@@ -222,8 +222,9 @@ export namespace Config {
     }
 
     // Load built-in commands (before user dirs so user overrides take precedence)
-    const builtinCommandsDir = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "commands")
-    result.command = mergeDeep(result.command ?? {}, await loadCommand(builtinCommandsDir))
+    // Point one level above so the glob pattern {command,commands}/**/*.md finds src/commands/*.md
+    const builtinDir = path.join(path.dirname(new URL(import.meta.url).pathname), "..")
+    result.command = mergeDeep(result.command ?? {}, await loadCommand(builtinDir))
 
     const deps = []
 
