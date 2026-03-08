@@ -1,8 +1,9 @@
-import { TextareaRenderable, TextAttributes } from "@opentui/core"
+import { TextareaRenderable, TextAttributes, type KeyEvent, type PasteEvent } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "./dialog"
 import { onMount, type JSX } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
+import { Clipboard } from "@tui/util/clipboard"
 
 export type DialogPromptProps = {
   title: string
@@ -48,6 +49,24 @@ export function DialogPrompt(props: DialogPromptProps) {
         <textarea
           onSubmit={() => {
             props.onConfirm?.(textarea.plainText)
+          }}
+          onKeyDown={async (e: KeyEvent) => {
+            // Handle Ctrl+V paste — read from clipboard directly
+            // Some terminals don't send bracketed paste for dialog inputs
+            if (e.name === "v" && e.ctrl && !e.meta && !e.shift) {
+              const content = await Clipboard.read()
+              if (content?.mime === "text/plain" && content.data) {
+                e.preventDefault()
+                textarea.insertText(content.data)
+              }
+            }
+          }}
+          onPaste={(event: PasteEvent) => {
+            // Handle bracketed paste from terminal
+            const text = event.text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim()
+            if (!text) return
+            event.preventDefault()
+            textarea.insertText(text)
           }}
           height={3}
           keyBindings={[{ name: "return", action: "submit" }]}
