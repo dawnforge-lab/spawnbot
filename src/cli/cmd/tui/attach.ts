@@ -38,6 +38,10 @@ export const AttachCommand = cmd({
         alias: ["p"],
         type: "string",
         describe: "basic auth password (defaults to KILO_SERVER_PASSWORD)",
+      })
+      .option("prompt", {
+        type: "string",
+        describe: "prompt to send on attach",
       }),
   handler: async (args) => {
     const unguard = win32InstallCtrlCGuard()
@@ -77,6 +81,7 @@ export const AttachCommand = cmd({
           continue: args.continue,
           sessionID: args.session,
           fork: args.fork,
+          prompt: args.prompt,
         },
         directory,
         headers,

@@ -2,7 +2,7 @@
 #
 # spawnbot — friendly CLI wrapper
 #
-# Maps user-friendly commands to the underlying bun/TypeScript CLI.
+# One command: `spawnbot` starts the daemon (if needed) and opens the TUI.
 # Installed to ~/.spawnbot/bin/spawnbot and added to PATH.
 #
 
@@ -12,9 +12,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SPAWNBOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# PID file for daemon management
-PID_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/spawnbot/daemon.pid"
-LOG_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/spawnbot/log"
+# State files for daemon management
+STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/spawnbot"
+PID_FILE="$STATE_DIR/daemon.pid"
+PORT_FILE="$STATE_DIR/daemon.port"
+LOG_DIR="$STATE_DIR/log"
 
 # Ensure bun is available (may need to source ~/.bun if just installed)
 check_bun() {
@@ -40,90 +42,127 @@ run_cli() {
   exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" "$@"
 }
 
-# Get daemon PID (returns 0 if not running)
-get_daemon_pid() {
+# Check if daemon is running. Sets DAEMON_PID and DAEMON_PORT on success.
+daemon_running() {
+  DAEMON_PID=""
+  DAEMON_PORT=""
   if [[ -f "$PID_FILE" ]]; then
     local pid
     pid=$(cat "$PID_FILE" 2>/dev/null)
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      echo "$pid"
+      DAEMON_PID="$pid"
+      # Read port from daemon's port file
+      if [[ -f "$PORT_FILE" ]]; then
+        DAEMON_PORT=$(cat "$PORT_FILE" 2>/dev/null)
+      fi
+      # If no port file yet, try default
+      if [[ -z "$DAEMON_PORT" ]]; then
+        DAEMON_PORT="4096"
+      fi
       return 0
     fi
   fi
-  echo ""
+  # Clean up stale files
+  rm -f "$PID_FILE" "$PORT_FILE"
   return 1
 }
 
-# --- Commands ---
-
-cmd_start() {
+# Start the daemon in background. Sets DAEMON_PID and DAEMON_PORT.
+start_daemon() {
   check_bun
-
-  local pid
-  if pid=$(get_daemon_pid); then
-    echo "spawnbot is already running (PID $pid)"
-    echo "Use 'spawnbot restart' to restart, or 'spawnbot stop' to stop."
-    exit 1
-  fi
-
-  echo "Starting spawnbot daemon..."
-  mkdir -p "$(dirname "$PID_FILE")" "$LOG_DIR"
+  mkdir -p "$STATE_DIR" "$LOG_DIR"
 
   # Start daemon in background, redirect output to log
-  nohup bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" daemon "$@" \
+  export SPAWNBOT_ORIGINAL_CWD="${PWD}"
+  cd "$SPAWNBOT_DIR"
+  nohup bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" daemon \
+    --port 4096 \
     >> "$LOG_DIR/daemon.log" 2>&1 &
   local daemon_pid=$!
 
   echo "$daemon_pid" > "$PID_FILE"
 
-  # Wait briefly to check it didn't crash immediately
-  sleep 2
-  if kill -0 "$daemon_pid" 2>/dev/null; then
-    echo "spawnbot started (PID $daemon_pid)"
-    echo "Logs: $LOG_DIR/daemon.log"
-  else
-    echo "spawnbot failed to start. Check logs:"
-    echo "  tail -50 $LOG_DIR/daemon.log"
-    rm -f "$PID_FILE"
-    exit 1
-  fi
-}
-
-cmd_stop() {
-  local pid
-  if ! pid=$(get_daemon_pid); then
-    echo "spawnbot is not running."
-    return 0
-  fi
-
-  echo "Stopping spawnbot (PID $pid)..."
-  kill "$pid" 2>/dev/null || true
-
-  # Wait for graceful shutdown (up to 10s)
+  # Wait for daemon to write its port file (up to 15s)
   local waited=0
-  while kill -0 "$pid" 2>/dev/null && [[ $waited -lt 10 ]]; do
+  while [[ $waited -lt 15 ]]; do
+    if ! kill -0 "$daemon_pid" 2>/dev/null; then
+      echo "Error: daemon failed to start. Check logs:"
+      echo "  tail -50 $LOG_DIR/daemon.log"
+      rm -f "$PID_FILE" "$PORT_FILE"
+      exit 1
+    fi
+    # Check if daemon has written its port file
+    if [[ -f "$PORT_FILE" ]]; then
+      DAEMON_PID="$daemon_pid"
+      DAEMON_PORT=$(cat "$PORT_FILE" 2>/dev/null)
+      return 0
+    fi
     sleep 1
     waited=$((waited + 1))
   done
 
-  if kill -0 "$pid" 2>/dev/null; then
-    echo "Force killing..."
-    kill -9 "$pid" 2>/dev/null || true
+  echo "Error: daemon did not become ready in time. Check logs:"
+  echo "  tail -50 $LOG_DIR/daemon.log"
+  rm -f "$PID_FILE" "$PORT_FILE"
+  exit 1
+}
+
+# Ensure daemon is running. Starts it if needed.
+ensure_daemon() {
+  if daemon_running; then
+    return 0
+  fi
+  echo "Starting spawnbot daemon..."
+  start_daemon
+  echo "Daemon started (PID $DAEMON_PID, port $DAEMON_PORT)"
+}
+
+# Attach TUI to the running daemon
+attach_tui() {
+  local extra_args=("$@")
+  check_bun
+  export SPAWNBOT_ORIGINAL_CWD="${PWD}"
+  cd "$SPAWNBOT_DIR"
+  exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" \
+    attach "http://127.0.0.1:${DAEMON_PORT}" --continue "${extra_args[@]}"
+}
+
+# --- Commands ---
+
+cmd_stop() {
+  if ! daemon_running; then
+    echo "spawnbot is not running."
+    return 0
   fi
 
-  rm -f "$PID_FILE"
+  echo "Stopping spawnbot (PID $DAEMON_PID)..."
+  kill "$DAEMON_PID" 2>/dev/null || true
+
+  # Wait for graceful shutdown (up to 10s)
+  local waited=0
+  while kill -0 "$DAEMON_PID" 2>/dev/null && [[ $waited -lt 10 ]]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  if kill -0 "$DAEMON_PID" 2>/dev/null; then
+    echo "Force killing..."
+    kill -9 "$DAEMON_PID" 2>/dev/null || true
+  fi
+
+  rm -f "$PID_FILE" "$PORT_FILE"
   echo "spawnbot stopped."
 }
 
 cmd_restart() {
   cmd_stop
-  cmd_start "$@"
+  ensure_daemon
+  echo "spawnbot restarted."
 }
 
 cmd_status() {
-  local pid
-  if pid=$(get_daemon_pid); then
-    echo "spawnbot is running (PID $pid)"
+  if daemon_running; then
+    echo "spawnbot is running (PID $DAEMON_PID, port $DAEMON_PORT)"
   else
     echo "spawnbot is not running."
   fi
@@ -152,10 +191,9 @@ cmd_help() {
   echo "Usage: spawnbot [command] [options]"
   echo ""
   echo "Commands:"
-  echo "  (default)    Launch the TUI (type /setup for first-time config)"
-  echo "  setup        Launch TUI and start onboarding wizard"
-  echo "  start        Start the daemon in the background"
-  echo "  stop         Stop the daemon"
+  echo "  (default)    Start daemon + open TUI (one command does everything)"
+  echo "  setup        Start daemon + open TUI with /setup wizard"
+  echo "  stop         Stop the background daemon"
   echo "  restart      Restart the daemon"
   echo "  status       Check if the daemon is running"
   echo "  logs [N|-f]  Show last N log lines (default: 50) or follow with -f"
@@ -171,21 +209,18 @@ cmd_help() {
   echo "  --help       Show all commands"
   echo ""
   echo "Get started:  spawnbot"
+  echo "Type /help in the TUI for keyboard shortcuts and commands."
 }
 
 # --- Main ---
 
 case "${1:-}" in
-  start)
-    shift
-    cmd_start "$@"
-    ;;
   stop)
     cmd_stop
     ;;
   restart)
     shift
-    cmd_restart "$@"
+    cmd_restart
     ;;
   status)
     cmd_status
@@ -200,13 +235,45 @@ case "${1:-}" in
   help|-h|--help)
     cmd_help
     ;;
-  setup)
-    # Launch TUI with /setup pre-filled
+  start)
+    # Start daemon only (no TUI)
     shift
-    run_cli --prompt "/setup" "$@"
+    if daemon_running; then
+      echo "spawnbot is already running (PID $DAEMON_PID, port $DAEMON_PORT)"
+      exit 0
+    fi
+    echo "Starting spawnbot daemon..."
+    start_daemon
+    echo "Daemon started (PID $DAEMON_PID, port $DAEMON_PORT)"
+    echo "Logs: $LOG_DIR/daemon.log"
+    echo ""
+    echo "Run 'spawnbot' to open the TUI."
     ;;
-  # Everything else passes through to the TypeScript CLI (including "" for default TUI)
-  *)
+  setup)
+    # Start daemon + open TUI with /setup
+    shift
+    ensure_daemon
+    check_bun
+    export SPAWNBOT_ORIGINAL_CWD="${PWD}"
+    cd "$SPAWNBOT_DIR"
+    exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" \
+      attach "http://127.0.0.1:${DAEMON_PORT}" --continue --prompt "/setup"
+    ;;
+  daemon|doctor|auth|models|session|run|serve|upgrade|debug|agent|github)
+    # Pass through to TypeScript CLI
     run_cli "$@"
+    ;;
+  *)
+    # Default: ensure daemon + open TUI attached to it
+    # If daemon can't start (no API key yet), fall back to standalone TUI
+    if ensure_daemon 2>&1; then
+      attach_tui "$@"
+    else
+      # Fall back to standalone TUI (first run, no provider configured yet)
+      echo "Daemon not available — starting standalone TUI."
+      echo "After configuring a provider, restart with: spawnbot"
+      echo ""
+      run_cli "$@"
+    fi
     ;;
 esac
