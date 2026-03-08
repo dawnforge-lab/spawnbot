@@ -28,17 +28,23 @@ describe("soul", () => {
   test("loadSoul returns default when no SOUL.md exists", () => {
     const result = loadSoul()
     expect(result).toContain("Spawnbot")
-    expect(result).toContain("software engineer")
+    expect(result).toContain("autonomous AI agent")
   })
 
-  test("default soul contains personality section", () => {
+  test("default soul contains communication section", () => {
     const result = loadSoul()
-    expect(result).toContain("# Personality")
-    expect(result).toContain("STRICTLY FORBIDDEN")
+    expect(result).toContain("## Communication")
+    expect(result).toContain("concise and direct")
   })
 
-  test("default soul contains code section", () => {
+  test("default soul contains tools and code sections", () => {
     const result = loadSoul()
-    expect(result).toContain("# Code")
+    expect(result).toContain("## Tools")
+    expect(result).toContain("## Working with code")
+  })
+
+  test("default soul contains identity placeholder", () => {
+    const result = loadSoul()
+    expect(result).toContain("# Identity")
   })
 })

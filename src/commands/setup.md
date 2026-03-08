@@ -8,11 +8,16 @@ Create the `.spawnbot/` directory if it doesn't exist.
 
 ## Step 1: Check for existing config
 
-Check if `.spawnbot/SOUL.md` already exists. If it does, tell the user and ask if they want to reconfigure (which will overwrite existing files). If they decline, stop here.
+Check if `.spawnbot/SOUL.md` already exists. If it does:
+- Look for an `# Identity` section. If present, tell the user their agent already has an identity and ask if they want to reconfigure it.
+- If they decline, skip to Step 3 (Telegram).
+- If they want to reconfigure, you will ONLY replace the `# Identity` section and everything below it — NEVER touch the operational instructions above.
+
+If no SOUL.md exists, create one by writing the default operational instructions first (you'll add the identity section in Step 2).
 
 ## Step 2: Co-create agent identity
 
-Interview the user to create four identity documents. Follow these guidelines:
+Interview the user to build an identity. Follow these guidelines:
 
 - Ask 2-3 focused questions per turn. Don't overwhelm.
 - Be conversational, warm, and brief. You're co-creating, not interrogating.
@@ -20,14 +25,15 @@ Interview the user to create four identity documents. Follow these guidelines:
 - If the user gives short answers, infer reasonable defaults and mention what you assumed.
 
 **Turn 1:** Ask what the agent should do (primary purpose), what personality/vibe it should have, and what name it should have.
-**Turn 2:** Ask about the owner — who they are, what the agent should know about them, communication preferences.
+**Turn 2:** Ask about the user — who they are, what the agent should know about them, communication preferences.
 **Turn 3:** Ask about immediate goals, tasks, ongoing responsibilities.
 **If needed, Turn 4:** Standard procedures, safety boundaries, things the agent should never do.
 
 When ready, write these files to `.spawnbot/`:
 
-1. **SOUL.md** — Core identity: personality traits, communication style, values, boundaries. Start with `# AgentName`. MUST include a `## Stop Phrase` section with a unique phrase the owner can use to halt all autonomous actions (e.g., "AgentName stop").
-2. **USER.md** — About the owner: who they are, preferences, how the agent should interact with them.
+1. **SOUL.md** — IMPORTANT: Read the existing SOUL.md first. Keep ALL content above the `---` separator (the operational instructions). Replace ONLY the `# Identity` section and everything below it with the new identity content. The identity section should include: agent name, personality traits, communication style, values, boundaries. MUST include a `## Stop Phrase` section with a unique phrase the user can use to halt all autonomous actions.
+
+2. **USER.md** — About the user: who they are, preferences, how the agent should interact with them.
 3. **GOALS.md** — Current objectives, priorities, success criteria.
 4. **PLAYBOOK.md** — Standard operating procedures, action templates, decision frameworks. Must include practical procedures, not abstract principles.
 
@@ -107,7 +113,9 @@ Show a summary of everything configured:
 - Autostart status
 
 Remind the user:
-- They can edit the generated Markdown files anytime
+- They can edit SOUL.md anytime to change both operational instructions and identity
+- The operational instructions (above the `---` separator) control how the agent works
+- The identity section (below `---`) defines who the agent is
 - Run `spawnbot start` to launch the daemon
 - Run `spawnbot doctor` to verify the setup
 
@@ -115,4 +123,5 @@ Remind the user:
 
 - Do NOT use fallbacks. If something fails (curl validation, file write), report the error clearly.
 - When writing `.env`, append to the file if it already exists — don't overwrite existing values.
+- NEVER overwrite the operational instructions section of SOUL.md. Only modify the identity section below the `---` separator.
 - The `spawnbot.json` config file with model/provider settings is managed by the TUI's auth system. Don't create or modify it unless specifically needed.
