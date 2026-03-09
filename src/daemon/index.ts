@@ -74,19 +74,16 @@ export namespace Daemon {
       file?: { path: string; mime: string; name?: string }
     },
   ): Promise<string | undefined> {
-    const parts: Array<
-      | { type: "text"; text: string }
-      | { type: "file"; mime: string; url: string; filename?: string }
-    > = [{ type: "text", text: input }]
-
+    // Attachments are saved to disk — include the path in the text
+    // so the LLM can use its file tools to read/analyze them.
+    // Never inline binary files as parts (providers may not support them).
+    let text = input
     if (opts?.file) {
-      parts.push({
-        type: "file",
-        mime: opts.file.mime,
-        url: `file://${opts.file.path}`,
-        filename: opts.file.name ?? path.basename(opts.file.path),
-      })
+      const name = opts.file.name ?? path.basename(opts.file.path)
+      text += `\n\n[Attachment: "${name}" (${opts.file.mime}) saved at ${opts.file.path}]`
     }
+
+    const parts: Array<{ type: "text"; text: string }> = [{ type: "text", text }]
 
     const messageID = Identifier.ascending("message")
     const llmResult = await SessionPrompt.prompt({
