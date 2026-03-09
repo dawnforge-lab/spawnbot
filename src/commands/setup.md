@@ -10,11 +10,11 @@ All agent files live in the workspace directory (the current working directory).
 
 Check if `SOUL.md` already exists in the workspace. Read it.
 
-- The file has two sections separated by `---`: operational instructions above, identity below.
-- The user may have already edited the operational instructions. NEVER overwrite or modify anything above the `---` separator.
-- If an `# Identity` section exists below `---` (not just the default placeholder), tell the user their agent already has an identity and ask if they want to reconfigure it.
+- The file has two sections separated by `---`: identity above, operating instructions below.
+- The user may have already edited the operating instructions. NEVER overwrite or modify anything below the `---` separator.
+- If an `# Identity` section exists above `---` (not just the default placeholder), tell the user their agent already has an identity and ask if they want to reconfigure it.
 - If they decline, skip to Step 3 (Telegram).
-- If they want to reconfigure, you will ONLY replace the `# Identity` section and everything below `---` — the operational instructions above MUST remain exactly as they are.
+- If they want to reconfigure, you will ONLY replace the `# Identity` section and everything above `---` — the operating instructions below MUST remain exactly as they are.
 
 If no SOUL.md exists at all, copy the default from the installation. Then proceed.
 
@@ -34,7 +34,7 @@ Interview the user to build an identity. Follow these guidelines:
 
 When ready, write these files to the workspace:
 
-1. **SOUL.md** — IMPORTANT: Read the existing SOUL.md first. Keep ALL content above the `---` separator (the operational instructions). Replace ONLY the `# Identity` section and everything below it with the new identity content. The identity section should include: agent name, personality traits, communication style (tone, verbosity, emoji usage, conversational vs terse), values, boundaries. MUST include a `## Stop Phrase` section with a unique phrase the user can use to halt all autonomous actions.
+1. **SOUL.md** — IMPORTANT: Read the existing SOUL.md first. Keep ALL content below the `---` separator (the operating instructions). Replace ONLY the `# Identity` section above `---` with the new identity content. The identity section should include: agent name, personality traits, communication style (tone, verbosity, emoji usage, conversational vs terse), values, boundaries. MUST include a `## Stop Phrase` section with a unique phrase the user can use to halt all autonomous actions.
 
 2. **USER.md** — About the user: who they are, preferences, how the agent should interact with them.
 3. **GOALS.md** — Current objectives, priorities, success criteria.
@@ -128,8 +128,8 @@ Show a summary of everything configured:
 
 Tell the user to review `SOUL.md` in the workspace:
 - The file has two sections separated by `---`
-- **Above `---`**: operational instructions — how the agent uses tools, writes code, handles git, safety rules. Review and tweak for your use case.
-- **Below `---`**: the identity we just created — personality, name, stop phrase
+- **Above `---`**: the identity we just created — personality, name, stop phrase
+- **Below `---`**: operating instructions — how the agent uses tools, writes code, handles git, safety rules. Review and tweak for your use case.
 - Edit anything you want. This is YOUR agent's brain. Changes take effect on the next message.
 
 Then remind them:
@@ -142,5 +142,5 @@ Then remind them:
 
 - Do NOT use fallbacks. If something fails (curl validation, file write), report the error clearly.
 - When writing `.env`, append to the file if it already exists — don't overwrite existing values.
-- NEVER overwrite the operational instructions section of SOUL.md. Only modify the identity section below the `---` separator.
+- NEVER overwrite the operating instructions section of SOUL.md. Only modify the identity section above the `---` separator.
 - The `spawnbot.json` config file with model/provider settings is managed by the TUI's auth system. Don't create or modify it unless specifically needed.

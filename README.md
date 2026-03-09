@@ -192,21 +192,9 @@ Override workspace location with `SPAWNBOT_WORKSPACE` env var or set it in `.env
 
 The most important file. It's inlined into the system prompt on every turn.
 
-Everything above the `---` separator is **operating instructions** (tools, code style, git rules, safety). Everything below is **identity** (name, personality, stop phrase). The `/setup` command only modifies the identity section — it never overwrites your operating instructions.
+Everything above the `---` separator is **identity** (name, personality, stop phrase). Everything below is **operating instructions** (tools, code style, git rules, safety). The `/setup` command only modifies the identity section — it never overwrites your operating instructions.
 
 ```markdown
-# Spawnbot
-
-You are a capable, autonomous AI agent...
-
-## Tools
-- Use dedicated tools over bash...
-
-## Working with code
-- Read code before modifying it...
-
----
-
 # Identity
 
 You are Jarvis, a sharp and efficient AI assistant.
@@ -217,6 +205,18 @@ You are Jarvis, a sharp and efficient AI assistant.
 
 ## Stop Phrase
 The phrase "Jarvis, stand down" immediately halts all autonomous actions.
+
+---
+
+# Operating Instructions
+
+You are a capable, autonomous AI agent...
+
+## Tools
+- Use dedicated tools over bash...
+
+## Working with code
+- Read code before modifying it...
 ```
 
 You can edit this file directly at any time. Changes take effect on the next conversation turn.
