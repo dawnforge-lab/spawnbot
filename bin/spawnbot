@@ -89,10 +89,37 @@ daemon_running() {
   return 1
 }
 
+# Check if port 4096 is already in use by an orphan daemon (no PID file).
+# If found, adopt it by writing PID/port files. Returns 0 if adopted.
+adopt_orphan_daemon() {
+  local orphan_pid
+  orphan_pid=$(ss -tlnp 2>/dev/null | grep ":4096 " | grep -oP 'pid=\K[0-9]+' | head -1)
+  if [[ -n "$orphan_pid" ]] && kill -0 "$orphan_pid" 2>/dev/null; then
+    # Verify it's actually a spawnbot process
+    local cmdline
+    cmdline=$(cat /proc/"$orphan_pid"/cmdline 2>/dev/null | tr '\0' ' ')
+    if [[ "$cmdline" == *spawnbot* ]] || [[ "$cmdline" == *"src/index.ts"* ]]; then
+      echo "Found orphan spawnbot daemon (PID $orphan_pid) on port 4096 — adopting it."
+      mkdir -p "$STATE_DIR"
+      echo "$orphan_pid" > "$PID_FILE"
+      echo "4096" > "$PORT_FILE"
+      DAEMON_PID="$orphan_pid"
+      DAEMON_PORT="4096"
+      return 0
+    fi
+  fi
+  return 1
+}
+
 # Start the daemon in background. Sets DAEMON_PID and DAEMON_PORT.
 start_daemon() {
   check_bun
   mkdir -p "$STATE_DIR" "$LOG_DIR"
+
+  # Check for orphan daemon on our port first
+  if adopt_orphan_daemon; then
+    return 0
+  fi
 
   # Start daemon in background, redirect output to log
   # Ensure workspace directory exists
@@ -108,10 +135,12 @@ start_daemon() {
 
   echo "$daemon_pid" > "$PID_FILE"
 
-  # Wait for daemon to write its port file (up to 15s)
+  # Wait for daemon to write its port file (up to 90s — ngrok retry can take up to 60s)
   local waited=0
-  while [[ $waited -lt 15 ]]; do
+  while [[ $waited -lt 90 ]]; do
     if ! kill -0 "$daemon_pid" 2>/dev/null; then
+      echo "Daemon process died during startup. Check logs:" >&2
+      tail -5 "$LOG_DIR/daemon.log" 2>/dev/null >&2
       rm -f "$PID_FILE" "$PORT_FILE"
       return 1
     fi
@@ -125,6 +154,8 @@ start_daemon() {
     waited=$((waited + 1))
   done
 
+  echo "Daemon startup timed out (90s). Check logs:" >&2
+  tail -5 "$LOG_DIR/daemon.log" 2>/dev/null >&2
   rm -f "$PID_FILE" "$PORT_FILE"
   return 1
 }
@@ -157,8 +188,13 @@ attach_tui() {
 
 cmd_stop() {
   if ! daemon_running; then
-    echo "spawnbot is not running."
-    return 0
+    # Check for orphan daemon without PID file
+    if adopt_orphan_daemon; then
+      echo "Found orphan daemon (PID $DAEMON_PID)."
+    else
+      echo "spawnbot is not running."
+      return 0
+    fi
   fi
 
   echo "Stopping spawnbot (PID $DAEMON_PID)..."
@@ -288,10 +324,8 @@ case "${1:-}" in
         attach "http://127.0.0.1:${DAEMON_PORT}" --continue --prompt "/setup"
     else
       echo ""
-      echo "Daemon could not start (likely no API key configured yet)."
-      echo ""
-      echo "Run 'spawnbot config' to set up your API key first."
-      echo "Then run 'spawnbot setup' again."
+      echo "Daemon could not start. Run 'spawnbot config' to set up credentials,"
+      echo "or check 'spawnbot logs' for details."
     fi
     ;;
   daemon|doctor|auth|models|session|run|serve|upgrade|debug|agent|github|config)
@@ -304,12 +338,14 @@ case "${1:-}" in
     if ensure_daemon; then
       attach_tui "$@"
     else
-      # No daemon — prompt user to configure
       echo ""
-      echo "Daemon could not start (likely no API key configured yet)."
+      echo "Daemon could not start."
       echo ""
-      echo "Run 'spawnbot config' to set up your API key and other settings."
-      echo "Then restart with: spawnbot"
+      echo "Troubleshooting:"
+      echo "  1. Check logs:    spawnbot logs"
+      echo "  2. Run config:    spawnbot config"
+      echo "  3. Run doctor:    spawnbot doctor"
+      echo "  4. Try manually:  spawnbot daemon --port 4096 --directory \"$WORKSPACE\" --print-logs"
     fi
     ;;
 esac
