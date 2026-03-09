@@ -230,19 +230,31 @@ export namespace TelegramListener {
 
       const video = ctx.message.video
       const filename = video.file_name ?? `video_${video.file_id}.mp4`
-      const filePath = await downloadFile(video.file_id, filename)
       const caption = ctx.message.caption ?? ""
 
-      const content = filePath
-        ? `${caption ? caption + "\n\n" : ""}[Video "${filename}" (${video.duration}s) attached]`
-        : `${caption ? caption + "\n\n" : ""}[Video received but download failed]`
+      // Telegram Bot API limits file downloads to 20MB
+      const TOO_LARGE = video.file_size && video.file_size > 20 * 1024 * 1024
+      let filePath: string | undefined
+      if (TOO_LARGE) {
+        log.warn("video too large for Bot API download", { fileSize: video.file_size, limit: "20MB" })
+      } else {
+        filePath = await downloadFile(video.file_id, filename)
+      }
+
+      if (!filePath) {
+        const reason = TOO_LARGE ? "exceeds Telegram's 20MB download limit" : "download failed"
+        await send(ctx.chat.id, `Sorry, I can't process this video — ${reason}.`)
+        return
+      }
+
+      const content = `${caption ? caption + "\n\n" : ""}[Video "${filename}" (${video.duration}s) attached]`
 
       await handleMessage(ctx, {
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
         content,
         chatId: ctx.chat.id,
         messageId: ctx.message.message_id,
-        file: filePath ? { path: filePath, mime: video.mime_type ?? "video/mp4", name: filename } : undefined,
+        file: { path: filePath, mime: video.mime_type ?? "video/mp4", name: filename },
       })
     })
 
@@ -256,6 +268,66 @@ export namespace TelegramListener {
         chatId: ctx.chat.id,
         messageId: ctx.message.message_id,
       })
+    })
+
+    bot.on("message:animation", async (ctx) => {
+      if (!isAllowed(ctx)) return
+
+      const anim = ctx.message.animation
+      const filename = anim.file_name ?? `animation_${anim.file_id}.mp4`
+      const caption = ctx.message.caption ?? ""
+
+      let filePath: string | undefined
+      if (anim.file_size && anim.file_size > 20 * 1024 * 1024) {
+        log.warn("animation too large for Bot API download", { fileSize: anim.file_size })
+      } else {
+        filePath = await downloadFile(anim.file_id, filename)
+      }
+
+      const content = filePath
+        ? `${caption ? caption + "\n\n" : ""}[Animation "${filename}" (${anim.duration}s) attached]`
+        : `${caption ? caption + "\n\n" : ""}[Animation received but download failed]`
+
+      await handleMessage(ctx, {
+        sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
+        content,
+        chatId: ctx.chat.id,
+        messageId: ctx.message.message_id,
+        file: filePath ? { path: filePath, mime: anim.mime_type ?? "video/mp4", name: filename } : undefined,
+      })
+    })
+
+    bot.on("message:video_note", async (ctx) => {
+      if (!isAllowed(ctx)) return
+
+      const note = ctx.message.video_note
+      let filePath: string | undefined
+      if (note.file_size && note.file_size > 20 * 1024 * 1024) {
+        log.warn("video note too large for Bot API download", { fileSize: note.file_size })
+      } else {
+        filePath = await downloadFile(note.file_id, `video_note_${note.file_id}.mp4`)
+      }
+
+      const content = filePath
+        ? `[Video note (${note.duration}s) attached]`
+        : "[Video note received but download failed]"
+
+      await handleMessage(ctx, {
+        sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
+        content,
+        chatId: ctx.chat.id,
+        messageId: ctx.message.message_id,
+        file: filePath ? { path: filePath, mime: "video/mp4" } : undefined,
+      })
+    })
+
+    // Catch-all for unhandled message types
+    bot.on("message", async (ctx) => {
+      if (!isAllowed(ctx)) return
+      const types = Object.keys(ctx.message).filter((k) =>
+        !["message_id", "from", "chat", "date", "entities"].includes(k)
+      )
+      log.warn("unhandled message type", { types, chatId: ctx.chat.id })
     })
   }
 
@@ -346,27 +418,46 @@ export namespace TelegramListener {
   async function downloadFile(fileId: string, filename: string): Promise<string | undefined> {
     if (!bot) return undefined
     try {
-      const file = await bot.api.getFile(fileId)
-      if (!file.file_path) return undefined
+      log.info("downloading telegram file", { fileId, filename })
 
-      const url = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`
-      const res = await fetch(url)
-      if (!res.ok) return undefined
-
-      const inboxDir = path.join(Global.Path.data, "inbox")
-      fs.mkdirSync(inboxDir, { recursive: true })
-
-      const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_")
-      const destPath = path.join(inboxDir, `${Date.now()}-${safeName}`)
-      const buffer = await res.arrayBuffer()
-      fs.writeFileSync(destPath, Buffer.from(buffer))
-
-      log.info("downloaded telegram file", { fileId, path: destPath, size: buffer.byteLength })
-      return destPath
+      // Race against a 30s timeout to prevent hanging
+      const result = await Promise.race([
+        downloadFileInner(fileId, filename),
+        new Promise<undefined>((_, reject) =>
+          setTimeout(() => reject(new Error("download timed out after 30s")), 30_000)
+        ),
+      ])
+      return result
     } catch (err) {
       log.error("failed to download telegram file", { fileId, error: err })
       return undefined
     }
+  }
+
+  async function downloadFileInner(fileId: string, filename: string): Promise<string | undefined> {
+    // Use direct fetch instead of bot.api.getFile() — grammY's API client hangs in webhook mode
+    const getFileRes = await fetch(`https://api.telegram.org/bot${bot!.token}/getFile?file_id=${encodeURIComponent(fileId)}`)
+    if (!getFileRes.ok) throw new Error(`getFile HTTP ${getFileRes.status}`)
+    const getFileData = await getFileRes.json() as { ok: boolean; result?: { file_path?: string } }
+    if (!getFileData.ok || !getFileData.result?.file_path) return undefined
+
+    const url = `https://api.telegram.org/file/bot${bot!.token}/${getFileData.result.file_path}`
+    const res = await retryTelegram(async () => {
+      const r = await fetch(url)
+      if (!r.ok) throw Object.assign(new Error(`HTTP ${r.status}`), { status: r.status })
+      return r
+    })
+
+    const inboxDir = path.join(Global.Path.data, "inbox")
+    fs.mkdirSync(inboxDir, { recursive: true })
+
+    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_")
+    const destPath = path.join(inboxDir, `${Date.now()}-${safeName}`)
+    const buffer = await res.arrayBuffer()
+    fs.writeFileSync(destPath, Buffer.from(buffer))
+
+    log.info("downloaded telegram file", { fileId, path: destPath, size: buffer.byteLength })
+    return destPath
   }
 
   async function retryTelegram<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
