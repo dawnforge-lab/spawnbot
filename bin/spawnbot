@@ -59,7 +59,7 @@ check_bun() {
 # Preserve original PWD so the TUI knows the real project directory.
 run_cli() {
   check_bun
-  export SPAWNBOT_ORIGINAL_CWD="${PWD}"
+  export SPAWNBOT_ORIGINAL_CWD="${SPAWNBOT_ORIGINAL_CWD:-$PWD}"
   cd "$SPAWNBOT_DIR"
   exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" "$@"
 }
@@ -290,6 +290,7 @@ case "${1:-}" in
       echo "Daemon could not start — running setup in standalone mode."
       echo "Use /connect first to add a provider, then /setup."
       echo ""
+      export SPAWNBOT_ORIGINAL_CWD="$WORKSPACE"
       run_cli --prompt "/setup"
     fi
     ;;
@@ -309,6 +310,7 @@ case "${1:-}" in
       echo "Starting standalone TUI — use /connect to add a provider."
       echo "Then restart with: spawnbot"
       echo ""
+      export SPAWNBOT_ORIGINAL_CWD="$WORKSPACE"
       run_cli "$@"
     fi
     ;;
