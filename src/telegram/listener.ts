@@ -25,7 +25,7 @@ export namespace TelegramListener {
     webhookSecret?: string
   }
 
-  export function start(config: Config) {
+  export async function start(config: Config) {
     if (bot) {
       log.warn("telegram listener already running")
       return
@@ -53,6 +53,10 @@ export namespace TelegramListener {
       })
     } else {
       mode = "polling"
+      // Clear any stale webhook/polling session from a previous crashed daemon
+      await bot.api.deleteWebhook({ drop_pending_updates: true }).catch((err) => {
+        log.warn("failed to clear stale webhook before polling", { error: err })
+      })
       bot.start({
         onStart: () => {
           log.info("telegram long polling started", {

@@ -140,7 +140,7 @@ export namespace Daemon {
         : undefined
 
       try {
-        TelegramListener.start({
+        await TelegramListener.start({
           token: telegramToken,
           ownerChatId: ownerId,
           allowedUsers: ownerId ? [ownerId] : [],
