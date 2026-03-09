@@ -23,9 +23,9 @@ export const DaemonCommand = cmd({
   handler: async (args) => {
     const opts = await resolveNetworkOptions(args)
 
-    // Register telegram webhook route BEFORE Server.listen() so it takes
-    // priority over the catch-all proxy route. The handler is set after
-    // Daemon.start() creates the bot.
+    // Pre-register telegram webhook route BEFORE Server.listen() so it has
+    // priority over the catch-all proxy route (which serves the TUI frontend).
+    // The actual grammY handler is wired in immediately after Daemon.start().
     let telegramHandler: ((c: any) => any) | undefined
     Server.registerRoute("post", "/telegram/:secret", (c: any) => {
       if (telegramHandler) return telegramHandler(c)
@@ -44,8 +44,18 @@ export const DaemonCommand = cmd({
       async fn() {
         await Daemon.start({ serverPort: port })
 
-        // Write port file AFTER successful startup so the bash script
-        // doesn't think the daemon is ready when it's about to crash
+        // Wire the telegram webhook handler IMMEDIATELY after Daemon.start()
+        // returns — setWebhook is now awaited inside start(), so Telegram
+        // will begin delivering updates right away.
+        const { TelegramListener } = await import("../../telegram/listener")
+        const handler = TelegramListener.webhookHandler()
+        if (handler) {
+          telegramHandler = handler
+          console.log(`telegram webhook mode active`)
+        }
+
+        // Write port file AFTER everything is wired so the bash script
+        // doesn't think the daemon is ready when it's still initializing
         writePortFile(port)
 
         if (args.dryRun) {
@@ -54,14 +64,6 @@ export const DaemonCommand = cmd({
           await Instance.disposeAll()
           await server.stop(true)
           return
-        }
-
-        // Wire the telegram webhook handler now that the bot is running
-        const { TelegramListener } = await import("../../telegram/listener")
-        const handler = TelegramListener.webhookHandler()
-        if (handler) {
-          telegramHandler = handler
-          console.log(`telegram webhook mode active`)
         }
 
         // Graceful shutdown

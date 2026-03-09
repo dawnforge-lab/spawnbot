@@ -43,17 +43,14 @@ export namespace TelegramListener {
 
     if (config.webhookUrl) {
       mode = "webhook"
-      // Set webhook with Telegram API
+      // Set webhook with Telegram API — await so failures propagate
       const secretPath = config.webhookSecret ?? config.token.split(":")[1]
       const fullUrl = `${config.webhookUrl}/telegram/${secretPath}`
-      bot.api.setWebhook(fullUrl).then(() => {
-        log.info("telegram webhook set", { url: fullUrl })
-      }).catch((err) => {
-        log.error("failed to set webhook", { error: err })
-      })
+      await bot.api.setWebhook(fullUrl)
+      log.info("telegram webhook set", { url: fullUrl })
     } else {
       mode = "polling"
-      // Clear any stale webhook/polling session from a previous crashed daemon
+      // Clear any stale webhook from a previous crashed daemon
       await bot.api.deleteWebhook({ drop_pending_updates: true }).catch((err) => {
         log.warn("failed to clear stale webhook before polling", { error: err })
       })

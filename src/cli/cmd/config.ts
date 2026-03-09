@@ -89,7 +89,13 @@ function getEnvValue(envPath: string, key: string): string | undefined {
   for (const line of content.split("\n")) {
     const trimmed = line.trim()
     if (trimmed.startsWith(`${key}=`)) {
-      return trimmed.slice(key.length + 1).trim()
+      let val = trimmed.slice(key.length + 1).trim()
+      // Strip surrounding quotes
+      if ((val.startsWith('"') && val.endsWith('"')) ||
+          (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1)
+      }
+      return val
     }
   }
   return undefined

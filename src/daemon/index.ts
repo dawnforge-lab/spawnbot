@@ -56,18 +56,12 @@ export namespace Daemon {
     const ngrokDomain = process.env.NGROK_DOMAIN
 
     if (ngrokToken) {
-      try {
-        webhookUrl = await Tunnel.start({
-          authtoken: ngrokToken,
-          port: opts.serverPort,
-          domain: ngrokDomain,
-        })
-        log.info("ngrok tunnel established", { url: webhookUrl })
-      } catch (err) {
-        log.error("ngrok tunnel failed (falling back to polling)", { error: err })
-        console.error("Warning: ngrok failed —", err instanceof Error ? err.message : String(err))
-        console.error("Telegram will use long polling instead of webhooks.")
-      }
+      webhookUrl = await Tunnel.start({
+        authtoken: ngrokToken,
+        port: opts.serverPort,
+        domain: ngrokDomain,
+      })
+      log.info("ngrok tunnel established", { url: webhookUrl })
     }
 
     // Resume existing daemon session or create a new one
