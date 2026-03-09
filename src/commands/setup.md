@@ -42,7 +42,17 @@ When ready, write these files to `.spawnbot/`:
 
 Each file should use Markdown with headings, be specific and actionable (not generic placeholder text), and use the agent name naturally.
 
-## Step 3: Telegram integration (optional)
+## Step 3: Workspace directory
+
+Ask the user where the agent should work from — its home base directory for file operations and projects.
+
+- Default: `$HOME` (the user's home directory)
+- Suggest alternatives like `~/spawnbot-workspace` or `~/projects` if the user prefers a dedicated space
+- This is the starting directory, not a sandbox — the agent can still access other directories when needed
+
+If the user picks something other than `$HOME`, append `SPAWNBOT_WORKSPACE=<path>` to `.spawnbot/.env`. Create the directory if it doesn't exist.
+
+## Step 4: Telegram integration (optional)
 
 Ask the user if they want to set up Telegram (the primary control channel for the daemon).
 
@@ -59,11 +69,11 @@ TELEGRAM_OWNER_ID=<chat_id>
 ```
 If ngrok: also add `NGROK_AUTHTOKEN=<token>` and optionally `NGROK_DOMAIN=<domain>`.
 
-## Step 4: OpenAI API key (optional)
+## Step 5: OpenAI API key (optional)
 
 Ask if the user wants to add an OpenAI API key for Whisper voice transcription and semantic memory embeddings. If yes, get the key and append `OPENAI_API_KEY=<key>` to `.spawnbot/.env`.
 
-## Step 5: Cron jobs (optional)
+## Step 6: Cron jobs (optional)
 
 Ask if the user wants scheduled autonomous tasks. If yes, create `.spawnbot/CRONS.yaml` with a commented example template:
 ```yaml
@@ -75,7 +85,7 @@ Ask if the user wants scheduled autonomous tasks. If yes, create `.spawnbot/CRON
 #   priority: normal
 ```
 
-## Step 6: Optional skills
+## Step 7: Optional skills
 
 Present these available skills and ask which ones the user wants to install:
 - **Image Generation** — generate images via fal.ai API
@@ -95,7 +105,7 @@ The skill directory names match the skill identifiers: `image-generation`, `text
 
 Copy each selected skill's SKILL.md to `.spawnbot/skills/<skill-name>/SKILL.md`.
 
-## Step 7: Autostart (optional)
+## Step 8: Autostart (optional)
 
 On Linux, offer to create a systemd user service for auto-start on boot. On macOS, offer to create a launchd agent. If the user wants it, create the service file and enable it.
 
@@ -106,25 +116,27 @@ WorkingDirectory=<project-dir>
 ```
 Then run `systemctl --user daemon-reload && systemctl --user enable spawnbot.service`.
 
-## Step 8: Summary
+## Step 9: Summary
 
 Show a summary of everything configured:
 - Agent name and personality summary
+- Workspace directory
 - Files created (list them)
 - Telegram status (configured or not)
 - Skills installed
 - Autostart status
 
-Tell the user to review `.spawnbot/SOUL.md` before starting the daemon:
+Tell the user to review `.spawnbot/SOUL.md`:
 - The file has two sections separated by `---`
 - **Above `---`**: operational instructions — how the agent uses tools, writes code, handles git, safety rules. Review and tweak for your use case.
 - **Below `---`**: the identity we just created — personality, name, stop phrase
 - Edit anything you want. This is YOUR agent's brain. Changes take effect on the next message.
 
 Then remind them:
-- Run `spawnbot start` to launch the daemon
+- Just run `spawnbot` — it handles everything (starts daemon if needed, opens TUI)
 - Run `spawnbot doctor` to verify the setup
 - All `.spawnbot/` files (USER.md, GOALS.md, PLAYBOOK.md) can be edited anytime
+- `spawnbot stop` to stop the daemon
 
 ## Important rules
 

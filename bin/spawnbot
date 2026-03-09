@@ -18,6 +18,28 @@ PID_FILE="$STATE_DIR/daemon.pid"
 PORT_FILE="$STATE_DIR/daemon.port"
 LOG_DIR="$STATE_DIR/log"
 
+# Resolve the agent's workspace directory.
+# Priority: SPAWNBOT_WORKSPACE env var > .spawnbot/.env > $HOME
+resolve_workspace() {
+  if [[ -n "${SPAWNBOT_WORKSPACE:-}" ]]; then
+    echo "$SPAWNBOT_WORKSPACE"
+    return
+  fi
+  # Try to read from .spawnbot/.env
+  local env_file="$HOME/.spawnbot/.env"
+  if [[ -f "$env_file" ]]; then
+    local ws
+    ws=$(grep -m1 '^SPAWNBOT_WORKSPACE=' "$env_file" 2>/dev/null | cut -d= -f2- | xargs)
+    if [[ -n "$ws" ]]; then
+      echo "$ws"
+      return
+    fi
+  fi
+  echo "$HOME"
+}
+
+WORKSPACE="$(resolve_workspace)"
+
 # Ensure bun is available (may need to source ~/.bun if just installed)
 check_bun() {
   if ! command -v bun &>/dev/null; then
@@ -77,7 +99,7 @@ start_daemon() {
   cd "$SPAWNBOT_DIR"
   nohup bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" daemon \
     --port 4096 \
-    --directory "$HOME" \
+    --directory "$WORKSPACE" \
     >> "$LOG_DIR/daemon.log" 2>&1 &
   local daemon_pid=$!
 
