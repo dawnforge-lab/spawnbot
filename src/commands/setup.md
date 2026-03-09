@@ -1,5 +1,5 @@
 ---
-description: "Set up your spawnbot agent — create identity, connect Telegram, configure skills"
+description: "Set up your spawnbot agent — create identity, configure skills and cron jobs"
 ---
 
 You are running the spawnbot onboarding wizard. Walk the user through setting up their autonomous AI agent. Work through the steps below in order, asking questions and creating files as you go.
@@ -13,7 +13,7 @@ Check if `SOUL.md` already exists in the workspace. Read it.
 - The file has two sections separated by `---`: identity above, operating instructions below.
 - The user may have already edited the operating instructions. NEVER overwrite or modify anything below the `---` separator.
 - If an `# Identity` section exists above `---` (not just the default placeholder), tell the user their agent already has an identity and ask if they want to reconfigure it.
-- If they decline, skip to Step 3 (Telegram).
+- If they decline, skip to Step 3 (Cron jobs).
 - If they want to reconfigure, you will ONLY replace the `# Identity` section and everything above `---` — the operating instructions below MUST remain exactly as they are.
 
 If no SOUL.md exists at all, copy the default from the installation. Then proceed.
@@ -42,38 +42,7 @@ When ready, write these files to the workspace:
 
 Each file should use Markdown with headings, be specific and actionable (not generic placeholder text), and use the agent name naturally.
 
-## Step 3: Workspace directory
-
-Ask the user where the agent should work from — its home base directory for file operations and projects.
-
-- Default: `~/.spawnbot/workspace/` (the agent's dedicated workspace inside the install directory)
-- Suggest alternatives like `~/projects` or a custom path if the user prefers a different location
-- This is the starting directory, not a sandbox — the agent can still access other directories when needed
-
-If the user picks a custom directory, append `SPAWNBOT_WORKSPACE=<path>` to `.env` in the workspace. Create the directory if it doesn't exist.
-
-## Step 4: Telegram integration (optional)
-
-Ask the user if they want to set up Telegram (the primary control channel for the daemon).
-
-If yes:
-1. Ask for the Bot Token (from @BotFather on Telegram)
-2. Validate it by running: `curl -s "https://api.telegram.org/bot<TOKEN>/getMe"` — check that `ok` is `true` and show the bot username
-3. Ask for their Telegram Chat ID (numeric). Explain they can get it by messaging @userinfobot on Telegram, or by sending a message to their bot then checking `curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates"` and looking for `chat.id`
-4. Optionally ask about ngrok for webhook mode (needs authtoken and optionally a fixed domain)
-
-Write the values to `.env` (append if file exists):
-```
-TELEGRAM_BOT_TOKEN=<token>
-TELEGRAM_OWNER_ID=<chat_id>
-```
-If ngrok: also add `NGROK_AUTHTOKEN=<token>` and optionally `NGROK_DOMAIN=<domain>`.
-
-## Step 5: OpenAI API key (optional)
-
-Ask if the user wants to add an OpenAI API key for Whisper voice transcription and semantic memory embeddings. If yes, get the key and append `OPENAI_API_KEY=<key>` to `.env`.
-
-## Step 6: Cron jobs (optional)
+## Step 3: Cron jobs (optional)
 
 Ask if the user wants scheduled autonomous tasks. If yes, create `CRONS.yaml` with a commented example template:
 ```yaml
@@ -85,7 +54,7 @@ Ask if the user wants scheduled autonomous tasks. If yes, create `CRONS.yaml` wi
 #   priority: normal
 ```
 
-## Step 7: Optional skills
+## Step 4: Optional skills
 
 Present these available skills and ask which ones the user wants to install:
 - **Image Generation** — generate images via fal.ai API
@@ -105,7 +74,7 @@ The skill directory names match the skill identifiers: `image-generation`, `text
 
 Copy each selected skill's SKILL.md to `skills/<skill-name>/SKILL.md`.
 
-## Step 8: Autostart (optional)
+## Step 5: Autostart (optional)
 
 On Linux, offer to create a systemd user service for auto-start on boot. On macOS, offer to create a launchd agent. If the user wants it, create the service file and enable it.
 
@@ -116,13 +85,11 @@ WorkingDirectory=<workspace-dir>
 ```
 Then run `systemctl --user daemon-reload && systemctl --user enable spawnbot.service`.
 
-## Step 9: Summary
+## Step 6: Summary
 
 Show a summary of everything configured:
 - Agent name and personality summary
-- Workspace directory
 - Files created (list them)
-- Telegram status (configured or not)
 - Skills installed
 - Autostart status
 
@@ -134,6 +101,7 @@ Tell the user to review `SOUL.md` in the workspace:
 
 Then remind them:
 - Just run `spawnbot` — it handles everything (starts daemon if needed, opens TUI)
+- Run `spawnbot config` to change API keys, Telegram, ngrok settings
 - Run `spawnbot doctor` to verify the setup
 - All workspace files (USER.md, GOALS.md, PLAYBOOK.md) can be edited anytime
 - `spawnbot stop` to stop the daemon

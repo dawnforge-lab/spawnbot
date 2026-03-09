@@ -204,10 +204,8 @@ fi
 
 echo -e "${BOLD}Next steps:${RESET}"
 echo ""
-echo "  1. Review your agent's instructions:"
-echo -e "     ${CYAN}$SOUL_FILE${RESET}"
-echo "     Edit this file to customize how your agent works."
-echo "     Everything above --- is identity, below --- is operating instructions."
+echo "  1. Configure your API key and integrations:"
+echo "     spawnbot config"
 echo ""
 echo "  2. Launch spawnbot:"
 echo "     spawnbot"
@@ -216,12 +214,16 @@ echo "  3. Type /setup to create your agent's identity"
 echo "     (this adds to SOUL.md without overwriting your edits)"
 echo ""
 
-# If stdin is a terminal (not piped), offer to launch
+# If stdin is a terminal (not piped), run config wizard
 if [ -t 0 ]; then
-  info "Starting spawnbot..."
+  info "Running configuration wizard..."
   echo ""
-  exec "$BIN_DIR/spawnbot"
+  "$BIN_DIR/spawnbot" config --directory "$WORKSPACE_DIR"
+  echo ""
+  info "Configuration complete. Run 'spawnbot' to start."
 else
   # When piped (curl | bash), stdin is the script — can't run interactive prompts
-  info "Since you installed via pipe, open a new terminal and run: spawnbot"
+  info "Since you installed via pipe, open a new terminal and run:"
+  echo "  spawnbot config    # set up API key and integrations"
+  echo "  spawnbot           # start the agent"
 fi

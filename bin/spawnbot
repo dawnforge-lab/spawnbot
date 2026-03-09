@@ -224,6 +224,7 @@ cmd_help() {
   echo "  status       Check if the daemon is running"
   echo "  logs [N|-f]  Show last N log lines (default: 50) or follow with -f"
   echo "  doctor       Check configuration and dependencies"
+  echo "  config       Configure API keys, Telegram, ngrok, OpenAI"
   echo "  run \"msg\"    Send a one-shot message and get a response"
   echo "  reset        Clear conversation history (fresh start)"
   echo ""
@@ -287,14 +288,13 @@ case "${1:-}" in
         attach "http://127.0.0.1:${DAEMON_PORT}" --continue --prompt "/setup"
     else
       echo ""
-      echo "Daemon could not start — running setup in standalone mode."
-      echo "Use /connect first to add a provider, then /setup."
+      echo "Daemon could not start (likely no API key configured yet)."
       echo ""
-      export SPAWNBOT_ORIGINAL_CWD="$WORKSPACE"
-      run_cli --prompt "/setup"
+      echo "Run 'spawnbot config' to set up your API key first."
+      echo "Then run 'spawnbot setup' again."
     fi
     ;;
-  daemon|doctor|auth|models|session|run|serve|upgrade|debug|agent|github)
+  daemon|doctor|auth|models|session|run|serve|upgrade|debug|agent|github|config)
     # Pass through to TypeScript CLI
     run_cli "$@"
     ;;
@@ -304,14 +304,12 @@ case "${1:-}" in
     if ensure_daemon; then
       attach_tui "$@"
     else
-      # Fall back to standalone TUI (first run, no provider configured yet)
+      # No daemon — prompt user to configure
       echo ""
       echo "Daemon could not start (likely no API key configured yet)."
-      echo "Starting standalone TUI — use /connect to add a provider."
-      echo "Then restart with: spawnbot"
       echo ""
-      export SPAWNBOT_ORIGINAL_CWD="$WORKSPACE"
-      run_cli "$@"
+      echo "Run 'spawnbot config' to set up your API key and other settings."
+      echo "Then restart with: spawnbot"
     fi
     ;;
 esac

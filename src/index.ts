@@ -65,6 +65,7 @@ import { SetupCommand } from "./cli/cmd/setup"
 import { DoctorCommand } from "./cli/cmd/doctor"
 import { DaemonCommand } from "./cli/cmd/daemon"
 import { ResetSessionCommand } from "./cli/cmd/reset-session"
+import { ConfigCommand } from "./cli/cmd/config"
 import { Instance } from "./project/instance"
 import { DbCommand } from "./cli/cmd/db"
 import path from "path"
@@ -182,6 +183,7 @@ let cli = yargs(hideBin(process.argv))
   .command(DoctorCommand)
   .command(DaemonCommand)
   .command(ResetSessionCommand)
+  .command(ConfigCommand)
 
 if (Installation.isLocal()) {
   cli = cli.command(WorkspaceServeCommand)
