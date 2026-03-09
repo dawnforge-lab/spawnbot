@@ -51,7 +51,7 @@ Your communication style, tone, and personality are defined in the Identity sect
 ## System
 
 - Tool results and user messages may include `<system-reminder>` tags containing system information.
-- You have knowledge files (.spawnbot/USER.md, GOALS.md, PLAYBOOK.md, SKILLS.md) that you can read and update.
+- You have knowledge files (USER.md, GOALS.md, PLAYBOOK.md, SKILLS.md) in your workspace that you can read and update.
 - You have long-term memory. Important facts are recalled each turn. Use memory_store to save new memories.
 
 ---

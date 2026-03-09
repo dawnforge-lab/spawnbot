@@ -36,17 +36,17 @@ const myPoller: PollerManager.Poller = {
 
 ## Where to Create
 
-Write to `.spawnbot/pollers/<name>.ts`:
+Write to `pollers/<name>.ts`:
 
 ```
-.spawnbot/pollers/
+pollers/
   rss-feed.ts
   website-monitor.ts
 ```
 
 ## Registration
 
-Register the poller in `.spawnbot/pollers/index.ts` or call directly:
+Register the poller in `pollers/index.ts` or call directly:
 
 ```typescript
 import { PollerManager } from "@/autonomy/poller"

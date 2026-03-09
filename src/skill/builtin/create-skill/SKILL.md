@@ -31,10 +31,10 @@ Use clear step-by-step format when describing processes.
 
 ## Where to Create
 
-Write to `.spawnbot/skills/<skill-name>/SKILL.md`:
+Write to `skills/<skill-name>/SKILL.md`:
 
 ```
-.spawnbot/skills/
+skills/
   deploy-app/
     SKILL.md
   write-thread/
@@ -49,7 +49,7 @@ Write to `.spawnbot/skills/<skill-name>/SKILL.md`:
 
 ## After Creating
 
-Update `.spawnbot/SKILLS.md` with the new skill entry. This is your index — read it to know what you can do.
+Update `SKILLS.md` with the new skill entry. This is your index — read it to know what you can do.
 
 Example SKILLS.md entry:
 ```markdown

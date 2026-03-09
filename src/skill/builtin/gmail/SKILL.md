@@ -128,7 +128,7 @@ When replying to an email, include these headers for proper threading:
 
 ## Creating the Tool
 
-When you need email capabilities, use the `create-tool` skill to build email tools in `.spawnbot/tools/`. Consider creating:
+When you need email capabilities, use the `create-tool` skill to build email tools in `tools/`. Consider creating:
 
 1. `gmail-inbox` — read inbox, return unread count + latest messages
 2. `gmail-send` — send an email (to, subject, body, cc, bcc)

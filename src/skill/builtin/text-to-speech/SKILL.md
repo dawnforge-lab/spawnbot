@@ -113,7 +113,7 @@ Control via `generation_config.volume` (float, 0.5 to 2.0):
 
 ## Creating the Tool
 
-When you need TTS, use the `create-tool` skill to build a `tts-speak` tool in `.spawnbot/tools/`. The tool should:
+When you need TTS, use the `create-tool` skill to build a `tts-speak` tool in `tools/`. The tool should:
 
 1. Read `CARTESIA_API_KEY` from `process.env`
 2. Accept `text`, `voice_id` (optional), `speed` (optional), `emotion` (optional), `language` (optional) arguments

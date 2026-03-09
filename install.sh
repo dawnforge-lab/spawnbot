@@ -162,12 +162,12 @@ esac
 # Make spawnbot available in current session
 export PATH="$BIN_DIR:$PATH"
 
-# --- Step 6: Create default SOUL.md ---
-SPAWNBOT_CONFIG="$HOME/.spawnbot"
-SOUL_FILE="$SPAWNBOT_CONFIG/SOUL.md"
+# --- Step 6: Create workspace with default SOUL.md ---
+WORKSPACE_DIR="$INSTALL_DIR/workspace"
+SOUL_FILE="$WORKSPACE_DIR/SOUL.md"
 
 if [[ ! -f "$SOUL_FILE" ]]; then
-  mkdir -p "$SPAWNBOT_CONFIG"
+  mkdir -p "$WORKSPACE_DIR"
   cp "$INSTALL_DIR/src/soul/default-soul.txt" "$SOUL_FILE"
 fi
 

@@ -11,12 +11,12 @@ import { createRssPoller, type RssPollerConfig } from "@/autonomy/pollers/rss"
 const log = Log.create({ service: "daemon.config" })
 
 /**
- * Load .env file from .spawnbot/ or global config, injecting into process.env.
+ * Load .env file from workspace or global config, injecting into process.env.
  * Bun auto-loads .env from cwd but we need the agent-specific one.
  */
 export function loadEnv() {
   const candidates = [
-    tryPath(path.join(Instance.directory, ".spawnbot", ".env")),
+    tryPath(path.join(Instance.directory, ".env")),
     tryPath(path.join(Global.Path.config, ".env")),
   ].filter(Boolean) as string[]
 
@@ -42,12 +42,12 @@ export function loadEnv() {
 }
 
 /**
- * Load CRONS.yaml from .spawnbot/ or global config.
+ * Load CRONS.yaml from workspace or global config.
  * Returns empty array if no file exists.
  */
 export function loadCrons(): CronScheduler.Job[] {
   const candidates = [
-    tryPath(path.join(Instance.directory, ".spawnbot", "CRONS.yaml")),
+    tryPath(path.join(Instance.directory, "CRONS.yaml")),
     tryPath(path.join(Global.Path.config, "CRONS.yaml")),
   ].filter(Boolean) as string[]
 
@@ -132,7 +132,7 @@ function sessionIDPath(): string {
 }
 
 /**
- * Load POLLERS.yaml from .spawnbot/ or global config.
+ * Load POLLERS.yaml from workspace or global config.
  * Registers all configured pollers with the PollerManager.
  *
  * Format:
@@ -145,7 +145,7 @@ function sessionIDPath(): string {
  */
 export async function loadPollers() {
   const candidates = [
-    tryPath(path.join(Instance.directory, ".spawnbot", "POLLERS.yaml")),
+    tryPath(path.join(Instance.directory, "POLLERS.yaml")),
     tryPath(path.join(Global.Path.config, "POLLERS.yaml")),
   ].filter(Boolean) as string[]
 

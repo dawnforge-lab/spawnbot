@@ -39,10 +39,10 @@ export default tool({
 
 ## Where to Create
 
-Write to `.spawnbot/tools/<name>.ts`:
+Write to `tools/<name>.ts`:
 
 ```
-.spawnbot/tools/
+tools/
   generate-image.ts
   post-tweet.ts
   text-to-speech.ts
@@ -68,4 +68,4 @@ Examples:
 ## After Creating
 
 1. The tool becomes available after the next session reload
-2. Update `.spawnbot/SKILLS.md` with the new tool entry so you remember it exists
+2. Update `SKILLS.md` with the new tool entry so you remember it exists

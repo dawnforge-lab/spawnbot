@@ -20,14 +20,14 @@ const DOCS = {
 } as const
 
 /**
- * Search directories for .spawnbot/ docs:
- * 1. Project .spawnbot/
+ * Search directories for agent docs (SOUL.md, USER.md, etc.):
+ * 1. Workspace root (Instance.directory)
  * 2. Global ~/.config/spawnbot/
  */
 function searchDirs(): string[] {
   const dirs: string[] = []
   try {
-    dirs.push(path.join(Instance.directory, ".spawnbot"))
+    dirs.push(Instance.directory)
   } catch {
     // Instance context not available (e.g. during tests or before project init)
   }
@@ -107,10 +107,10 @@ export function buildDocsReference(): string | undefined {
 
 /**
  * Get the preferred directory for creating new doc files.
- * Creates .spawnbot/ in project directory if needed.
+ * Returns the workspace root (Instance.directory).
  */
 export function docsDir(): string {
-  return path.join(Instance.directory, ".spawnbot")
+  return Instance.directory
 }
 
 /** Invalidate the SOUL.md cache. */

@@ -20,8 +20,19 @@ export namespace ConfigPaths {
   }
 
   export async function directories(directory: string, worktree: string) {
+    // Include Instance.directory directly so workspace-root config files
+    // (skills/, tools/, spawnbot.json, etc.) are discovered without needing
+    // a .spawnbot subdirectory.
+    const instanceDir: string[] = []
+    try {
+      const { Instance } = await import("@/project/instance")
+      instanceDir.push(Instance.directory)
+    } catch {
+      // Instance not available (e.g. during tests)
+    }
     return [
       Global.Path.config,
+      ...instanceDir,
       ...(!Flag.KILO_DISABLE_PROJECT_CONFIG
         ? await Array.fromAsync(
             Filesystem.up({

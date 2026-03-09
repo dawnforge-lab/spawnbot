@@ -172,7 +172,7 @@ Store multiple refresh tokens and switch between them:
 
 ## Creating the Tool
 
-When you need Reddit capabilities, use the `create-tool` skill to build Reddit tools in `.spawnbot/tools/`. Since PRAW is a Python library, the tool should shell out to a Python helper script. Consider creating:
+When you need Reddit capabilities, use the `create-tool` skill to build Reddit tools in `tools/`. Since PRAW is a Python library, the tool should shell out to a Python helper script. Consider creating:
 
 1. `reddit-post` — create text or link posts (subreddit, title, body/url)
 2. `reddit-read` — get top/hot/new posts from a subreddit

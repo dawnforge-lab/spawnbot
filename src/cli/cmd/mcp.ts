@@ -384,9 +384,7 @@ async function resolveConfigPath(baseDir: string, global = false) {
   // Check for existing config files (prefer .jsonc over .json, check .opencode/ subdirectory too)
   const candidates = [path.join(baseDir, "spawnbot.json"), path.join(baseDir, "spawnbot.jsonc")]
 
-  if (!global) {
-    candidates.push(path.join(baseDir, ".spawnbot", "spawnbot.json"), path.join(baseDir, ".spawnbot", "spawnbot.jsonc"))
-  }
+  // No subdirectory lookup needed — flat workspace layout
 
   // Also check legacy config locations
   const legacy = [path.join(baseDir, "opencode.json"), path.join(baseDir, "opencode.jsonc")]

@@ -128,19 +128,19 @@ export function DialogHelp() {
           Config Files
         </text>
         <text fg={muted}>
-          .spawnbot/SOUL.md        Operating instructions + identity
+          SOUL.md        Operating instructions + identity
         </text>
         <text fg={muted}>
-          .spawnbot/USER.md        Information about you
+          USER.md        Information about you
         </text>
         <text fg={muted}>
-          .spawnbot/GOALS.md       Current objectives
+          GOALS.md       Current objectives
         </text>
         <text fg={muted}>
-          .spawnbot/PLAYBOOK.md    Action templates
+          PLAYBOOK.md    Action templates
         </text>
         <text fg={muted}>
-          .spawnbot/.env           API keys and secrets
+          .env           API keys and secrets
         </text>
       </box>
 

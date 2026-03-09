@@ -4,11 +4,11 @@ description: "Set up your spawnbot agent — create identity, connect Telegram, 
 
 You are running the spawnbot onboarding wizard. Walk the user through setting up their autonomous AI agent. Work through the steps below in order, asking questions and creating files as you go.
 
-Create the `.spawnbot/` directory if it doesn't exist.
+All agent files live in the workspace directory (the current working directory). Create it if it doesn't exist.
 
 ## Step 1: Check for existing config
 
-Check if `.spawnbot/SOUL.md` already exists. Read it.
+Check if `SOUL.md` already exists in the workspace. Read it.
 
 - The file has two sections separated by `---`: operational instructions above, identity below.
 - The user may have already edited the operational instructions. NEVER overwrite or modify anything above the `---` separator.
@@ -16,7 +16,7 @@ Check if `.spawnbot/SOUL.md` already exists. Read it.
 - If they decline, skip to Step 3 (Telegram).
 - If they want to reconfigure, you will ONLY replace the `# Identity` section and everything below `---` — the operational instructions above MUST remain exactly as they are.
 
-If no SOUL.md exists at all, create `.spawnbot/` and copy the default from the installation. Then proceed.
+If no SOUL.md exists at all, copy the default from the installation. Then proceed.
 
 ## Step 2: Co-create agent identity
 
@@ -32,7 +32,7 @@ Interview the user to build an identity. Follow these guidelines:
 **Turn 3:** Ask about immediate goals, tasks, ongoing responsibilities.
 **If needed, Turn 4:** Standard procedures, safety boundaries, things the agent should never do.
 
-When ready, write these files to `.spawnbot/`:
+When ready, write these files to the workspace:
 
 1. **SOUL.md** — IMPORTANT: Read the existing SOUL.md first. Keep ALL content above the `---` separator (the operational instructions). Replace ONLY the `# Identity` section and everything below it with the new identity content. The identity section should include: agent name, personality traits, communication style (tone, verbosity, emoji usage, conversational vs terse), values, boundaries. MUST include a `## Stop Phrase` section with a unique phrase the user can use to halt all autonomous actions.
 
@@ -46,11 +46,11 @@ Each file should use Markdown with headings, be specific and actionable (not gen
 
 Ask the user where the agent should work from — its home base directory for file operations and projects.
 
-- Default: `$HOME` (the user's home directory)
-- Suggest alternatives like `~/spawnbot-workspace` or `~/projects` if the user prefers a dedicated space
+- Default: `~/.spawnbot/workspace/` (the agent's dedicated workspace inside the install directory)
+- Suggest alternatives like `~/projects` or a custom path if the user prefers a different location
 - This is the starting directory, not a sandbox — the agent can still access other directories when needed
 
-If the user picks something other than `$HOME`, append `SPAWNBOT_WORKSPACE=<path>` to `.spawnbot/.env`. Create the directory if it doesn't exist.
+If the user picks a custom directory, append `SPAWNBOT_WORKSPACE=<path>` to `.env` in the workspace. Create the directory if it doesn't exist.
 
 ## Step 4: Telegram integration (optional)
 
@@ -62,7 +62,7 @@ If yes:
 3. Ask for their Telegram Chat ID (numeric). Explain they can get it by messaging @userinfobot on Telegram, or by sending a message to their bot then checking `curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates"` and looking for `chat.id`
 4. Optionally ask about ngrok for webhook mode (needs authtoken and optionally a fixed domain)
 
-Write the values to `.spawnbot/.env` (append if file exists):
+Write the values to `.env` (append if file exists):
 ```
 TELEGRAM_BOT_TOKEN=<token>
 TELEGRAM_OWNER_ID=<chat_id>
@@ -71,11 +71,11 @@ If ngrok: also add `NGROK_AUTHTOKEN=<token>` and optionally `NGROK_DOMAIN=<domai
 
 ## Step 5: OpenAI API key (optional)
 
-Ask if the user wants to add an OpenAI API key for Whisper voice transcription and semantic memory embeddings. If yes, get the key and append `OPENAI_API_KEY=<key>` to `.spawnbot/.env`.
+Ask if the user wants to add an OpenAI API key for Whisper voice transcription and semantic memory embeddings. If yes, get the key and append `OPENAI_API_KEY=<key>` to `.env`.
 
 ## Step 6: Cron jobs (optional)
 
-Ask if the user wants scheduled autonomous tasks. If yes, create `.spawnbot/CRONS.yaml` with a commented example template:
+Ask if the user wants scheduled autonomous tasks. If yes, create `CRONS.yaml` with a commented example template:
 ```yaml
 # Scheduled jobs — each fires a prompt on a cron schedule
 #
@@ -103,7 +103,7 @@ find ~/.spawnbot/src/skill/builtin -name "SKILL.md" -type f 2>/dev/null || find 
 
 The skill directory names match the skill identifiers: `image-generation`, `text-to-speech`, `gmail`, `google-calendar`, `x-twitter`, `reddit`, `moltbook`.
 
-Copy each selected skill's SKILL.md to `.spawnbot/skills/<skill-name>/SKILL.md`.
+Copy each selected skill's SKILL.md to `skills/<skill-name>/SKILL.md`.
 
 ## Step 8: Autostart (optional)
 
@@ -112,7 +112,7 @@ On Linux, offer to create a systemd user service for auto-start on boot. On macO
 For systemd, the service file goes to `~/.config/systemd/user/spawnbot.service` and uses:
 ```
 ExecStart=<path-to-bun> run --conditions=browser <spawnbot-dir>/src/index.ts daemon
-WorkingDirectory=<project-dir>
+WorkingDirectory=<workspace-dir>
 ```
 Then run `systemctl --user daemon-reload && systemctl --user enable spawnbot.service`.
 
@@ -126,7 +126,7 @@ Show a summary of everything configured:
 - Skills installed
 - Autostart status
 
-Tell the user to review `.spawnbot/SOUL.md`:
+Tell the user to review `SOUL.md` in the workspace:
 - The file has two sections separated by `---`
 - **Above `---`**: operational instructions — how the agent uses tools, writes code, handles git, safety rules. Review and tweak for your use case.
 - **Below `---`**: the identity we just created — personality, name, stop phrase
@@ -135,7 +135,7 @@ Tell the user to review `.spawnbot/SOUL.md`:
 Then remind them:
 - Just run `spawnbot` — it handles everything (starts daemon if needed, opens TUI)
 - Run `spawnbot doctor` to verify the setup
-- All `.spawnbot/` files (USER.md, GOALS.md, PLAYBOOK.md) can be edited anytime
+- All workspace files (USER.md, GOALS.md, PLAYBOOK.md) can be edited anytime
 - `spawnbot stop` to stop the daemon
 
 ## Important rules

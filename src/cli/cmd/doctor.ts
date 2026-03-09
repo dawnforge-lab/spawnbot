@@ -39,7 +39,7 @@ export const DoctorCommand = cmd({
         name: "SOUL.md (project)",
         run: () => {
           try {
-            const p = path.join(Instance.directory, ".spawnbot", "SOUL.md")
+            const p = path.join(Instance.directory, "SOUL.md")
             return fs.existsSync(p) ? undefined : `Not found: ${p}`
           } catch {
             return "No project context (run from a project directory)"
@@ -50,7 +50,7 @@ export const DoctorCommand = cmd({
         name: "SOUL.md content",
         run: () => {
           const locations = [Global.Path.config]
-          try { locations.unshift(path.join(Instance.directory, ".spawnbot")) } catch { /* no instance */ }
+          try { locations.unshift(Instance.directory) } catch { /* no instance */ }
 
           for (const dir of locations) {
             const p = path.join(dir, "SOUL.md")
@@ -70,7 +70,7 @@ export const DoctorCommand = cmd({
             path.join(Global.Path.config, ".env"),
           ]
           try {
-            locations.unshift(path.join(Instance.directory, ".spawnbot", ".env"))
+            locations.unshift(path.join(Instance.directory, ".env"))
           } catch { /* no instance */ }
 
           for (const loc of locations) {
@@ -105,7 +105,7 @@ export const DoctorCommand = cmd({
         name: "CRONS.yaml syntax",
         run: () => {
           const locations: string[] = []
-          try { locations.push(path.join(Instance.directory, ".spawnbot", "CRONS.yaml")) } catch { /* no instance */ }
+          try { locations.push(path.join(Instance.directory, "CRONS.yaml")) } catch { /* no instance */ }
           locations.push(path.join(Global.Path.config, "CRONS.yaml"))
 
           for (const loc of locations) {
@@ -126,7 +126,7 @@ export const DoctorCommand = cmd({
         name: "POLLERS.yaml syntax",
         run: () => {
           const locations: string[] = []
-          try { locations.push(path.join(Instance.directory, ".spawnbot", "POLLERS.yaml")) } catch { /* no instance */ }
+          try { locations.push(path.join(Instance.directory, "POLLERS.yaml")) } catch { /* no instance */ }
           locations.push(path.join(Global.Path.config, "POLLERS.yaml"))
 
           for (const loc of locations) {

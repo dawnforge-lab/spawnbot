@@ -174,7 +174,7 @@ resp = client.get_users_followers(
 
 ## Creating the Tool
 
-When you need X capabilities, use the `create-tool` skill to build X tools in `.spawnbot/tools/`. Since tweepy is a Python library, the tool should shell out to a Python helper script. Consider creating:
+When you need X capabilities, use the `create-tool` skill to build X tools in `tools/`. Since tweepy is a Python library, the tool should shell out to a Python helper script. Consider creating:
 
 1. `x-post` — post a tweet (text, optional image URL)
 2. `x-thread` — post a thread (array of texts)

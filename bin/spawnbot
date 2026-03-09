@@ -19,14 +19,14 @@ PORT_FILE="$STATE_DIR/daemon.port"
 LOG_DIR="$STATE_DIR/log"
 
 # Resolve the agent's workspace directory.
-# Priority: SPAWNBOT_WORKSPACE env var > .spawnbot/.env > $HOME
+# Priority: SPAWNBOT_WORKSPACE env var > workspace/.env > default (SPAWNBOT_DIR/workspace)
 resolve_workspace() {
   if [[ -n "${SPAWNBOT_WORKSPACE:-}" ]]; then
     echo "$SPAWNBOT_WORKSPACE"
     return
   fi
-  # Try to read from .spawnbot/.env
-  local env_file="$HOME/.spawnbot/.env"
+  # Try to read from workspace/.env
+  local env_file="$SPAWNBOT_DIR/workspace/.env"
   if [[ -f "$env_file" ]]; then
     local ws
     ws=$(grep -m1 '^SPAWNBOT_WORKSPACE=' "$env_file" 2>/dev/null | cut -d= -f2- | xargs)
@@ -35,7 +35,7 @@ resolve_workspace() {
       return
     fi
   fi
-  echo "$HOME"
+  echo "$SPAWNBOT_DIR/workspace"
 }
 
 WORKSPACE="$(resolve_workspace)"
@@ -95,6 +95,9 @@ start_daemon() {
   mkdir -p "$STATE_DIR" "$LOG_DIR"
 
   # Start daemon in background, redirect output to log
+  # Ensure workspace directory exists
+  mkdir -p "$WORKSPACE"
+
   export SPAWNBOT_ORIGINAL_CWD="${PWD}"
   cd "$SPAWNBOT_DIR"
   nohup bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" daemon \

@@ -68,7 +68,7 @@ The `/setup` command walks you through an interactive conversation to:
 - Install optional skills (image generation, TTS, Gmail, etc.)
 - Set up autostart (systemd/launchd)
 
-This creates `.spawnbot/` in your project directory with:
+This creates files in the workspace (`~/.spawnbot/workspace/`):
 - `SOUL.md` — Operating instructions + agent identity (co-created with LLM)
 - `USER.md` — Information about you
 - `GOALS.md` — Current objectives
@@ -147,7 +147,32 @@ Type these in the TUI prompt:
 
 ## Configuration
 
-All config lives in `.spawnbot/` (project-level) or `~/.config/spawnbot/` (global). Project-level takes priority.
+All config lives in the workspace directory (`~/.spawnbot/workspace/` by default) or `~/.config/spawnbot/` (global). Workspace takes priority.
+
+### Directory Layout
+
+```
+~/.spawnbot/                        # Install dir (git repo — code only)
+  ├── src/
+  ├── bin/
+  └── node_modules/
+
+~/.spawnbot/workspace/              # Agent workspace (default, configurable)
+  ├── SOUL.md                       # Operating instructions + identity
+  ├── USER.md                       # About the owner
+  ├── GOALS.md                      # Current objectives
+  ├── PLAYBOOK.md                   # Action templates
+  ├── SKILLS.md                     # Skills index (agent-maintained)
+  ├── .env                          # API keys and secrets
+  ├── CRONS.yaml                    # Scheduled jobs
+  ├── POLLERS.yaml                  # Feed pollers
+  ├── spawnbot.json                 # Provider/model config
+  ├── skills/                       # User skills
+  ├── tools/                        # User tools
+  └── (agent's work files)
+```
+
+Override workspace location with `SPAWNBOT_WORKSPACE` env var or set it in `.env`.
 
 ### Files
 
@@ -229,14 +254,16 @@ New feed items are enqueued as events for the agent to process.
 
 ### .env
 
+Located in the workspace directory (e.g. `~/.spawnbot/workspace/.env`):
+
 ```bash
 # LLM Provider (at least one required)
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_GENERATIVE_AI_API_KEY=...
 
-# Workspace — the agent's starting directory (default: $HOME)
-SPAWNBOT_WORKSPACE=~/projects
+# Custom workspace (default: ~/.spawnbot/workspace/)
+# SPAWNBOT_WORKSPACE=~/my-agent
 
 # Telegram (optional)
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
@@ -429,8 +456,8 @@ The agent will start a new conversation on the next start, but memories persist.
 | Problem | Solution |
 |---------|----------|
 | Agent won't start | Run `spawnbot doctor` to identify missing config |
-| "SOUL.md not found" | Run `spawnbot` and type `/setup`, or create `.spawnbot/SOUL.md` |
-| "No LLM provider API key" | Add `*_API_KEY` to `.spawnbot/.env` or use `/connect` in TUI |
+| "SOUL.md not found" | Run `spawnbot` and type `/setup`, or create `SOUL.md` in the workspace |
+| "No LLM provider API key" | Add `*_API_KEY` to `.env` in the workspace or use `/connect` in TUI |
 | Telegram not connecting | Check `TELEGRAM_BOT_TOKEN` in `.env` |
 | Queue full messages | Agent is busy — messages are processed sequentially |
 | YAML parse error | Fix syntax in `CRONS.yaml` or `POLLERS.yaml` |

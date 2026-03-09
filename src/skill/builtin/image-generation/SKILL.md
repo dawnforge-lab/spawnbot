@@ -96,7 +96,7 @@ The agent owner may configure a LoRA URL in their SOUL.md or .env for consistent
 
 ## Creating the Tool
 
-When you need image generation, use the `create-tool` skill to build a `fal-generate` tool in `.spawnbot/tools/`. The tool should:
+When you need image generation, use the `create-tool` skill to build a `fal-generate` tool in `tools/`. The tool should:
 
 1. Read `FAL_API_KEY` from `process.env`
 2. Accept `prompt`, `size` (optional), and `model` (optional) arguments

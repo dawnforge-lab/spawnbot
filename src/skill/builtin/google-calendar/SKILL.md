@@ -123,7 +123,7 @@ DTSTART;TZID=America/New_York:20260220T100000
 
 ## Creating the Tool
 
-When you need calendar capabilities, use the `create-tool` skill to build calendar tools in `.spawnbot/tools/`. Consider creating:
+When you need calendar capabilities, use the `create-tool` skill to build calendar tools in `tools/`. Consider creating:
 
 1. `gcal-events` — list upcoming events (accepts `days_ahead` argument)
 2. `gcal-create` — create a new event (title, start, end, description, location)

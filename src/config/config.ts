@@ -230,7 +230,14 @@ export namespace Config {
 
     for (const dir of unique(directories)) {
 
-      if (dir.endsWith(".spawnbot") || dir.endsWith(".kilo") || dir.endsWith(".opencode") || dir === Flag.KILO_CONFIG_DIR) {
+      // Load config JSON from known config directories and the workspace root
+      const isConfigDir = dir.endsWith(".spawnbot") || dir.endsWith(".kilo") || dir.endsWith(".opencode") || dir === Flag.KILO_CONFIG_DIR
+      let isInstanceDir = false
+      try {
+        const { Instance } = await import("@/project/instance")
+        isInstanceDir = dir === Instance.directory
+      } catch { /* Instance not available */ }
+      if (isConfigDir || isInstanceDir) {
         for (const file of ["spawnbot.jsonc", "spawnbot.json", "kilo.jsonc", "kilo.json", "opencode.jsonc", "opencode.json"]) {
           log.debug(`loading config from ${path.join(dir, file)}`)
           result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
