@@ -66,6 +66,15 @@ export namespace Server {
   }
 
   const app = new Hono()
+
+  /**
+   * Register a route on the raw Hono app BEFORE the catch-all proxy.
+   * Must be called before Server.listen() / App() to ensure priority.
+   */
+  export function registerRoute(method: "post" | "get" | "all", path: string, handler: (c: any) => any) {
+    app[method](path, handler)
+  }
+
   export const App: () => Hono = lazy(
     () =>
       // TODO: Break server.ts into smaller route files to fix type inference

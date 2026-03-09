@@ -22,6 +22,16 @@ export const DaemonCommand = cmd({
       }),
   handler: async (args) => {
     const opts = await resolveNetworkOptions(args)
+
+    // Register telegram webhook route BEFORE Server.listen() so it takes
+    // priority over the catch-all proxy route. The handler is set after
+    // Daemon.start() creates the bot.
+    let telegramHandler: ((c: any) => any) | undefined
+    Server.registerRoute("post", "/telegram/:secret", (c: any) => {
+      if (telegramHandler) return telegramHandler(c)
+      return c.json({ error: "not ready" }, 503)
+    })
+
     const server = Server.listen(opts)
     const port = server.port!
     console.log(`spawnbot daemon listening on http://${server.hostname}:${port}`)
@@ -46,14 +56,11 @@ export const DaemonCommand = cmd({
           return
         }
 
-        // Mount Telegram webhook route on the server
+        // Wire the telegram webhook handler now that the bot is running
         const { TelegramListener } = await import("../../telegram/listener")
         const handler = TelegramListener.webhookHandler()
         if (handler) {
-          const { Hono } = await import("hono")
-          const webhookApp = new Hono()
-          webhookApp.post("/telegram/:secret", (c) => handler(c))
-          Server.App().route("/", webhookApp)
+          telegramHandler = handler
           console.log(`telegram webhook mode active`)
         }
 
