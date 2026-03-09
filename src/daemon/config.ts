@@ -59,6 +59,11 @@ export function loadCrons(): CronScheduler.Job[] {
     } catch (err) {
       throw new Error(`Failed to parse CRONS.yaml at ${cronPath}: ${String(err)}`)
     }
+    // All-comment files parse as undefined/null — treat as empty
+    if (parsed == null) {
+      log.info("loaded crons (empty/comments only)", { path: cronPath })
+      return []
+    }
     if (!Array.isArray(parsed)) {
       throw new Error(`CRONS.yaml at ${cronPath} must be a YAML array`)
     }
@@ -156,6 +161,11 @@ export async function loadPollers() {
       parsed = yaml.load(content)
     } catch (err) {
       throw new Error(`Failed to parse POLLERS.yaml at ${pollerPath}: ${String(err)}`)
+    }
+    // All-comment files parse as undefined/null — treat as empty
+    if (parsed == null) {
+      log.info("loaded pollers (empty/comments only)", { path: pollerPath })
+      return
     }
     if (!Array.isArray(parsed)) {
       throw new Error(`POLLERS.yaml at ${pollerPath} must be a YAML array`)
