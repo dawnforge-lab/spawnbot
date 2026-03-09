@@ -26,7 +26,15 @@ import { ImportCommand } from "./cli/cmd/import"
 const AttachCommand = {
   command: "attach <url>",
   describe: "attach to a running spawnbot server",
-  builder: (yargs: any) => yargs.positional("url", { type: "string", demandOption: true }),
+  builder: (yargs: any) =>
+    yargs
+      .positional("url", { type: "string", demandOption: true })
+      .option("dir", { type: "string", description: "directory to run in" })
+      .option("continue", { alias: ["c"], describe: "continue the last session", type: "boolean" })
+      .option("session", { alias: ["s"], type: "string", describe: "session id to continue" })
+      .option("fork", { type: "boolean", describe: "fork the session when continuing" })
+      .option("password", { alias: ["p"], type: "string", describe: "basic auth password" })
+      .option("prompt", { type: "string", describe: "prompt to send on attach" }),
   handler: async (args: any) => {
     const { AttachCommand: Cmd } = await import("./cli/cmd/tui/attach")
     return Cmd.handler!(args)
