@@ -144,6 +144,7 @@ export namespace Server {
         )
         .route("/global", GlobalRoutes())
         .route("/status", StatusRoutes())
+        .route("/telegram", TelegramRoutes())
         .put(
           "/auth/:providerID",
           describeRoute({
@@ -246,7 +247,6 @@ export namespace Server {
           }),
         )
         .use(validator("query", z.object({ directory: z.string().optional() })))
-        .route("/telegram", TelegramRoutes())
         .route("/project", ProjectRoutes())
         .route("/pty", PtyRoutes())
         .route("/config", ConfigRoutes())

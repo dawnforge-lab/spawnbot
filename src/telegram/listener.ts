@@ -82,6 +82,9 @@ export namespace TelegramListener {
   export async function switchToWebhook(publicUrl: string) {
     if (!bot) throw new Error("bot not initialized")
 
+    // bot.init() is required for handleUpdate() — polling mode calls it implicitly via bot.start()
+    await bot.init()
+
     const secret = bot.token.split(":")[1]
     const fullUrl = `${publicUrl}/telegram`
     await bot.api.setWebhook(fullUrl, { secret_token: secret })
@@ -94,38 +97,44 @@ export namespace TelegramListener {
 
   /**
    * Process a message through the handler and send the response back.
-   * Manages typing indicators automatically.
+   * Fire-and-forget: returns immediately so the webhook can respond 200.
+   * Typing indicators + LLM processing + response delivery happen async.
    */
-  async function handleMessage(ctx: Context, event: MessageEvent) {
+  function handleMessage(_ctx: Context, event: MessageEvent) {
     if (!messageHandler) {
       log.warn("no message handler set, ignoring message")
       return
     }
 
-    // Show typing indicator, repeat every 5s
-    const sendTyping = () => {
-      bot?.api.sendChatAction(event.chatId, "typing").catch(() => {})
-    }
-    sendTyping()
-    const typingInterval = setInterval(sendTyping, 5000)
-
-    try {
-      const response = await messageHandler(event)
-
-      if (response) {
-        await send(event.chatId, response)
-        log.info("response delivered", {
-          chatId: event.chatId,
-          length: response.length,
+    // Fire-and-forget — don't block the webhook response
+    void (async () => {
+      // Show typing indicator, repeat every 4s (Telegram clears after ~5s)
+      const sendTyping = () => {
+        bot?.api.sendChatAction(event.chatId, "typing").catch((err) => {
+          log.warn("typing indicator failed", { chatId: event.chatId, error: err?.message ?? err })
         })
       }
-    } catch (err) {
-      log.error("message processing failed", { error: err })
-      const errMsg = err instanceof Error ? err.message : String(err)
-      await send(event.chatId, `Error: ${errMsg}`).catch(() => {})
-    } finally {
-      clearInterval(typingInterval)
-    }
+      sendTyping()
+      const typingInterval = setInterval(sendTyping, 4000)
+
+      try {
+        const response = await messageHandler(event)
+
+        if (response) {
+          await send(event.chatId, response)
+          log.info("response delivered", {
+            chatId: event.chatId,
+            length: response.length,
+          })
+        }
+      } catch (err) {
+        log.error("message processing failed", { error: err })
+        const errMsg = err instanceof Error ? err.message : String(err)
+        await send(event.chatId, `Error: ${errMsg}`).catch(() => {})
+      } finally {
+        clearInterval(typingInterval)
+      }
+    })()
   }
 
   function registerHandlers() {
