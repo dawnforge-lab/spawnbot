@@ -112,10 +112,8 @@ start_daemon() {
   local waited=0
   while [[ $waited -lt 15 ]]; do
     if ! kill -0 "$daemon_pid" 2>/dev/null; then
-      echo "Error: daemon failed to start. Check logs:"
-      echo "  tail -50 $LOG_DIR/daemon.log"
       rm -f "$PID_FILE" "$PORT_FILE"
-      exit 1
+      return 1
     fi
     # Check if daemon has written its port file
     if [[ -f "$PORT_FILE" ]]; then
@@ -127,20 +125,22 @@ start_daemon() {
     waited=$((waited + 1))
   done
 
-  echo "Error: daemon did not become ready in time. Check logs:"
-  echo "  tail -50 $LOG_DIR/daemon.log"
   rm -f "$PID_FILE" "$PORT_FILE"
-  exit 1
+  return 1
 }
 
 # Ensure daemon is running. Starts it if needed.
+# Returns 0 on success, 1 if daemon couldn't start.
 ensure_daemon() {
   if daemon_running; then
     return 0
   fi
   echo "Starting spawnbot daemon..."
-  start_daemon
-  echo "Daemon started (PID $DAEMON_PID, port $DAEMON_PORT)"
+  if start_daemon; then
+    echo "Daemon started (PID $DAEMON_PID, port $DAEMON_PORT)"
+    return 0
+  fi
+  return 1
 }
 
 # Attach TUI to the running daemon
@@ -277,13 +277,21 @@ case "${1:-}" in
     ;;
   setup)
     # Start daemon + open TUI with /setup
+    # If daemon can't start, fall back to standalone TUI with /setup prompt
     shift
-    ensure_daemon
-    check_bun
-    export SPAWNBOT_ORIGINAL_CWD="${PWD}"
-    cd "$SPAWNBOT_DIR"
-    exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" \
-      attach "http://127.0.0.1:${DAEMON_PORT}" --continue --prompt "/setup"
+    if ensure_daemon; then
+      check_bun
+      export SPAWNBOT_ORIGINAL_CWD="${PWD}"
+      cd "$SPAWNBOT_DIR"
+      exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" \
+        attach "http://127.0.0.1:${DAEMON_PORT}" --continue --prompt "/setup"
+    else
+      echo ""
+      echo "Daemon could not start — running setup in standalone mode."
+      echo "Use /connect first to add a provider, then /setup."
+      echo ""
+      run_cli --prompt "/setup"
+    fi
     ;;
   daemon|doctor|auth|models|session|run|serve|upgrade|debug|agent|github)
     # Pass through to TypeScript CLI
@@ -292,12 +300,14 @@ case "${1:-}" in
   *)
     # Default: ensure daemon + open TUI attached to it
     # If daemon can't start (no API key yet), fall back to standalone TUI
-    if ensure_daemon 2>&1; then
+    if ensure_daemon; then
       attach_tui "$@"
     else
       # Fall back to standalone TUI (first run, no provider configured yet)
-      echo "Daemon not available — starting standalone TUI."
-      echo "After configuring a provider, restart with: spawnbot"
+      echo ""
+      echo "Daemon could not start (likely no API key configured yet)."
+      echo "Starting standalone TUI — use /connect to add a provider."
+      echo "Then restart with: spawnbot"
       echo ""
       run_cli "$@"
     fi
