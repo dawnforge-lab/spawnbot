@@ -3,7 +3,7 @@ import { Tool } from "./tool"
 import { TelegramListener } from "@/telegram/listener"
 
 export const TelegramSendTool = Tool.define("tg_send", {
-  description: `Send a message to a Telegram chat. If no chat_id is provided, sends to the owner's chat. Supports Markdown formatting. Long messages are automatically split.`,
+  description: `Send a proactive message to Telegram (for autonomous actions, notifications, or scheduled tasks only). Do NOT use this for replying to user messages — replies are delivered automatically. If no chat_id is provided, sends to the owner's chat. Supports Markdown formatting.`,
   parameters: z.object({
     text: z.string().describe("The message text to send (supports Markdown)"),
     chat_id: z.coerce.number().optional().describe("Target chat ID (defaults to owner chat)"),
@@ -26,7 +26,7 @@ export const TelegramSendTool = Tool.define("tg_send", {
 })
 
 export const TelegramPhotoTool = Tool.define("tg_photo", {
-  description: `Send a photo to a Telegram chat. The photo can be a URL or a file_id from a previous message.`,
+  description: `Send a photo to Telegram proactively (for autonomous actions only). Do NOT use this for replying to user messages. The photo can be a URL or a file_id.`,
   parameters: z.object({
     photo: z.string().describe("Photo URL or file_id"),
     caption: z.string().optional().describe("Photo caption (supports Markdown)"),

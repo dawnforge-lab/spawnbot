@@ -1,7 +1,5 @@
-import { Bot, webhookCallback, type Context } from "grammy"
-import { InputQueue } from "@/input/queue"
+import { Bot, type Context } from "grammy"
 import { Log } from "@/util/log"
-import { ulid } from "ulid"
 import fs from "fs"
 import path from "path"
 import { Global } from "@/global"
@@ -15,14 +13,37 @@ export namespace TelegramListener {
   let ownerChatId: number | undefined
   let mode: "polling" | "webhook" = "polling"
 
+  /**
+   * Message handler set by the daemon. grammY handlers call this directly.
+   * Returns the text response to send back to the user.
+   */
+  let messageHandler: MessageHandler | undefined
+
+  export interface MessageEvent {
+    sender: string
+    content: string
+    chatId: number
+    messageId: number
+    /** Optional file attachment (photo, document, etc.) */
+    file?: { path: string; mime: string; name?: string }
+  }
+
+  export type MessageHandler = (event: MessageEvent) => Promise<string | undefined>
+
   export interface Config {
     token: string
-    allowedUsers?: number[] // Telegram user IDs
-    ownerChatId?: number // Primary chat ID for responses
-    /** Webhook URL — if set, uses webhook mode instead of long polling */
-    webhookUrl?: string
-    /** Secret token for webhook verification */
-    webhookSecret?: string
+    allowedUsers?: number[]
+    ownerChatId?: number
+    /**
+     * Defer starting (no polling, no webhook).
+     * Call switchToWebhook() after ngrok tunnel is ready.
+     */
+    deferStart?: boolean
+  }
+
+  /** Set the handler that processes incoming messages and returns a response. */
+  export function onMessage(handler: MessageHandler) {
+    messageHandler = handler
   }
 
   export async function start(config: Config) {
@@ -41,95 +62,70 @@ export namespace TelegramListener {
       log.error("telegram bot error", { error: err })
     })
 
-    if (config.webhookUrl) {
-      mode = "webhook"
-      // Set webhook with Telegram API — await so failures propagate
-      const secretPath = config.webhookSecret ?? config.token.split(":")[1]
-      const fullUrl = `${config.webhookUrl}/telegram/${secretPath}`
-      await bot.api.setWebhook(fullUrl)
-      log.info("telegram webhook set", { url: fullUrl })
-    } else {
-      mode = "polling"
-      // Clear any stale webhook from a previous crashed daemon
-      await bot.api.deleteWebhook({ drop_pending_updates: true }).catch((err) => {
-        log.warn("failed to clear stale webhook before polling", { error: err })
-      })
-      bot.start({
-        onStart: () => {
-          log.info("telegram long polling started", {
-            allowedUsers: [...allowedUsers],
-          })
-        },
-      })
+    if (config.deferStart) {
+      log.info("telegram bot created (deferred start)", { allowedUsers: [...allowedUsers] })
+      return
     }
+
+    mode = "polling"
+    await bot.api.deleteWebhook({ drop_pending_updates: true }).catch((err) => {
+      log.warn("failed to clear stale webhook before polling", { error: err })
+    })
+    bot.start({
+      onStart: () => {
+        log.info("telegram long polling started", { allowedUsers: [...allowedUsers] })
+      },
+    })
   }
+
+  /** Register webhook URL with Telegram and switch to webhook mode. */
+  export async function switchToWebhook(publicUrl: string) {
+    if (!bot) throw new Error("bot not initialized")
+
+    const secret = bot.token.split(":")[1]
+    const fullUrl = `${publicUrl}/telegram`
+    await bot.api.setWebhook(fullUrl, { secret_token: secret })
+    mode = "webhook"
+
+    log.info("webhook mode activated", { url: fullUrl })
+  }
+
+  // ── Message handlers ──────────────────────────────────────────────
 
   /**
-   * Get the Hono-compatible webhook handler.
-   * Mount this at /telegram/:secret on your Hono app.
+   * Process a message through the handler and send the response back.
+   * Manages typing indicators automatically.
    */
-  export function webhookHandler() {
-    if (!bot || mode !== "webhook") return undefined
-    return webhookCallback(bot, "hono")
-  }
+  async function handleMessage(ctx: Context, event: MessageEvent) {
+    if (!messageHandler) {
+      log.warn("no message handler set, ignoring message")
+      return
+    }
 
-  /** Download a file from Telegram and save it to the inbox directory. */
-  async function downloadFile(fileId: string, filename: string): Promise<string | undefined> {
-    if (!bot) return undefined
+    // Show typing indicator, repeat every 5s
+    const sendTyping = () => {
+      bot?.api.sendChatAction(event.chatId, "typing").catch(() => {})
+    }
+    sendTyping()
+    const typingInterval = setInterval(sendTyping, 5000)
+
     try {
-      const file = await bot.api.getFile(fileId)
-      if (!file.file_path) return undefined
+      const response = await messageHandler(event)
 
-      const url = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`
-      const res = await fetch(url)
-      if (!res.ok) return undefined
-
-      const inboxDir = path.join(Global.Path.data, "inbox")
-      fs.mkdirSync(inboxDir, { recursive: true })
-
-      // Use timestamp prefix to avoid collisions
-      const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_")
-      const destPath = path.join(inboxDir, `${Date.now()}-${safeName}`)
-      const buffer = await res.arrayBuffer()
-      fs.writeFileSync(destPath, Buffer.from(buffer))
-
-      log.info("downloaded telegram file", { fileId, path: destPath, size: buffer.byteLength })
-      return destPath
-    } catch (err) {
-      log.error("failed to download telegram file", { fileId, error: err })
-      return undefined
-    }
-  }
-
-  /** Enqueue an event or notify the user if the queue is full */
-  async function enqueueOrReply(ctx: Context, event: InputQueue.InputEvent): Promise<void> {
-    const accepted = InputQueue.enqueue(event)
-    if (!accepted) {
-      await ctx.reply("I'm currently busy processing other messages. Please try again shortly.").catch((err) => {
-        log.warn("failed to send queue-full reply", { error: err })
-      })
-    }
-  }
-
-  /** Retry a Telegram API call with exponential backoff for transient errors */
-  async function retryTelegram<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
-    let lastError: unknown
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await fn()
-      } catch (err: any) {
-        lastError = err
-        const status = err?.error_code ?? err?.status
-        if (status === 429 || status >= 500 || err?.code === "ECONNRESET" || err?.code === "ETIMEDOUT") {
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
-          log.warn("telegram API retry", { attempt, delay, error: err?.message })
-          await new Promise((r) => setTimeout(r, delay))
-          continue
-        }
-        throw err
+      if (response) {
+        await send(event.chatId, response)
+        log.info("response delivered", {
+          chatId: event.chatId,
+          length: response.length,
+        })
       }
+    } catch (err) {
+      log.error("message processing failed", { error: err })
+      const errMsg = err instanceof Error ? err.message : String(err)
+      await send(event.chatId, `Error: ${errMsg}`).catch(() => {})
+    } finally {
+      clearInterval(typingInterval)
     }
-    throw lastError
   }
 
   function registerHandlers() {
@@ -137,62 +133,36 @@ export namespace TelegramListener {
 
     bot.on("message:text", async (ctx) => {
       if (!isAllowed(ctx)) {
-        log.warn("unauthorized message", {
-          userId: ctx.from?.id,
-          username: ctx.from?.username,
-        })
+        log.warn("unauthorized message", { userId: ctx.from?.id, username: ctx.from?.username })
         return
       }
 
-      const event: InputQueue.InputEvent = {
-        id: ulid(),
-        source: "telegram",
+      await handleMessage(ctx, {
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
         content: ctx.message.text,
-        priority: "normal",
-        metadata: {
-          chatId: ctx.chat.id,
-          messageId: ctx.message.message_id,
-          userId: ctx.from?.id,
-          username: ctx.from?.username,
-        },
-        timestamp: Date.now(),
-      }
-
-      await enqueueOrReply(ctx, event)
+        chatId: ctx.chat.id,
+        messageId: ctx.message.message_id,
+      })
     })
 
     bot.on("message:photo", async (ctx) => {
       if (!isAllowed(ctx)) return
 
-      // Download the highest-resolution photo
       const photos = ctx.message.photo
       const largest = photos[photos.length - 1]
       const filePath = await downloadFile(largest.file_id, `photo_${largest.file_id}.jpg`)
-
       const caption = ctx.message.caption ?? ""
-      if (!filePath) {
-        await ctx.reply("Photo download failed. I'll still process your message but won't be able to see the image.").catch(() => {})
-      }
+
       const content = filePath
-        ? `${caption ? caption + "\n\n" : ""}[Photo saved to ${filePath} — read and analyze this image]`
+        ? `${caption ? caption + "\n\n" : ""}[Photo attached]`
         : caption || "[photo received but download failed]"
 
-      await enqueueOrReply(ctx, {
-        id: ulid(),
-        source: "telegram",
+      await handleMessage(ctx, {
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
         content,
-        priority: "normal",
-        metadata: {
-          chatId: ctx.chat.id,
-          messageId: ctx.message.message_id,
-          userId: ctx.from?.id,
-          filePath,
-          fileType: "photo",
-          mime: "image/jpeg",
-        },
-        timestamp: Date.now(),
+        chatId: ctx.chat.id,
+        messageId: ctx.message.message_id,
+        file: filePath ? { path: filePath, mime: "image/jpeg" } : undefined,
       })
     })
 
@@ -202,31 +172,18 @@ export namespace TelegramListener {
       const doc = ctx.message.document
       const filename = doc.file_name ?? "document"
       const filePath = await downloadFile(doc.file_id, filename)
-
       const caption = ctx.message.caption ?? ""
-      if (!filePath) {
-        await ctx.reply(`Document "${filename}" download failed. I'll still process your message but won't be able to read the file.`).catch(() => {})
-      }
+
       const content = filePath
-        ? `${caption ? caption + "\n\n" : ""}[File "${filename}" saved to ${filePath} — read and analyze this file]`
+        ? `${caption ? caption + "\n\n" : ""}[File "${filename}" attached]`
         : `${caption ? caption + "\n\n" : ""}[Document "${filename}" received but download failed]`
 
-      await enqueueOrReply(ctx, {
-        id: ulid(),
-        source: "telegram",
+      await handleMessage(ctx, {
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
         content,
-        priority: "normal",
-        metadata: {
-          chatId: ctx.chat.id,
-          messageId: ctx.message.message_id,
-          userId: ctx.from?.id,
-          filePath,
-          fileType: "document",
-          fileName: filename,
-          mime: doc.mime_type,
-        },
-        timestamp: Date.now(),
+        chatId: ctx.chat.id,
+        messageId: ctx.message.message_id,
+        file: filePath ? { path: filePath, mime: doc.mime_type ?? "application/octet-stream", name: filename } : undefined,
       })
     })
 
@@ -236,7 +193,6 @@ export namespace TelegramListener {
       const voice = ctx.message.voice
       const filePath = await downloadFile(voice.file_id, `voice_${voice.file_id}.ogg`)
 
-      // Attempt Whisper transcription if file was downloaded
       let transcript: string | undefined
       if (filePath) {
         transcript = await Transcribe.audio(filePath)
@@ -246,29 +202,17 @@ export namespace TelegramListener {
       if (transcript) {
         content = `[Voice message (${voice.duration}s) transcribed]:\n\n${transcript}`
       } else if (filePath) {
-        content = `[Voice message (${voice.duration}s) saved to ${filePath} — transcription unavailable, analyze this audio file]`
+        content = `[Voice message (${voice.duration}s) — transcription unavailable]`
       } else {
-        await ctx.reply("Voice message download failed.").catch(() => {})
         content = "[Voice message received but download failed]"
       }
 
-      await enqueueOrReply(ctx, {
-        id: ulid(),
-        source: "telegram",
+      await handleMessage(ctx, {
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
         content,
-        priority: "normal",
-        metadata: {
-          chatId: ctx.chat.id,
-          messageId: ctx.message.message_id,
-          userId: ctx.from?.id,
-          filePath,
-          fileType: "voice",
-          mime: voice.mime_type ?? "audio/ogg",
-          duration: voice.duration,
-          transcript,
-        },
-        timestamp: Date.now(),
+        chatId: ctx.chat.id,
+        messageId: ctx.message.message_id,
+        file: filePath ? { path: filePath, mime: voice.mime_type ?? "audio/ogg" } : undefined,
       })
     })
 
@@ -278,32 +222,18 @@ export namespace TelegramListener {
       const video = ctx.message.video
       const filename = video.file_name ?? `video_${video.file_id}.mp4`
       const filePath = await downloadFile(video.file_id, filename)
-
       const caption = ctx.message.caption ?? ""
-      if (!filePath) {
-        await ctx.reply("Video download failed. I'll still process your message but won't be able to see the video.").catch(() => {})
-      }
+
       const content = filePath
-        ? `${caption ? caption + "\n\n" : ""}[Video "${filename}" (${video.duration}s) saved to ${filePath}]`
+        ? `${caption ? caption + "\n\n" : ""}[Video "${filename}" (${video.duration}s) attached]`
         : `${caption ? caption + "\n\n" : ""}[Video received but download failed]`
 
-      await enqueueOrReply(ctx, {
-        id: ulid(),
-        source: "telegram",
+      await handleMessage(ctx, {
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
         content,
-        priority: "normal",
-        metadata: {
-          chatId: ctx.chat.id,
-          messageId: ctx.message.message_id,
-          userId: ctx.from?.id,
-          filePath,
-          fileType: "video",
-          fileName: filename,
-          mime: video.mime_type,
-          duration: video.duration,
-        },
-        timestamp: Date.now(),
+        chatId: ctx.chat.id,
+        messageId: ctx.message.message_id,
+        file: filePath ? { path: filePath, mime: video.mime_type ?? "video/mp4", name: filename } : undefined,
       })
     })
 
@@ -311,22 +241,16 @@ export namespace TelegramListener {
       if (!isAllowed(ctx)) return
 
       const sticker = ctx.message.sticker
-      await enqueueOrReply(ctx, {
-        id: ulid(),
-        source: "telegram",
+      await handleMessage(ctx, {
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
         content: `[Sticker: ${sticker.emoji ?? ""}${sticker.set_name ? ` from "${sticker.set_name}"` : ""}]`,
-        priority: "low",
-        metadata: {
-          chatId: ctx.chat.id,
-          messageId: ctx.message.message_id,
-          userId: ctx.from?.id,
-          fileType: "sticker",
-        },
-        timestamp: Date.now(),
+        chatId: ctx.chat.id,
+        messageId: ctx.message.message_id,
       })
     })
   }
+
+  // ── Outbound ──────────────────────────────────────────────────────
 
   export async function stop() {
     if (bot) {
@@ -355,7 +279,6 @@ export namespace TelegramListener {
       return undefined
     }
 
-    // Split long messages (Telegram limit: 4096 chars)
     const MAX_LENGTH = 4096
     const chunks = splitMessage(text, MAX_LENGTH)
 
@@ -365,7 +288,6 @@ export namespace TelegramListener {
         return bot!.api.sendMessage(target, chunk, {
           parse_mode: "Markdown",
         }).catch(async () => {
-          // Retry without Markdown if parsing fails
           return bot!.api.sendMessage(target, chunk)
         })
       })
@@ -386,20 +308,13 @@ export namespace TelegramListener {
     if (!target) return undefined
 
     const sent = await retryTelegram(async () => {
-      return bot!.api.sendPhoto(target, photo, {
-        caption,
-        parse_mode: "Markdown",
-      })
+      return bot!.api.sendPhoto(target, photo, { caption, parse_mode: "Markdown" })
     })
     return sent.message_id
   }
 
   /** React to a message */
-  export async function react(
-    chatId: number,
-    messageId: number,
-    emoji: string,
-  ): Promise<void> {
+  export async function react(chatId: number, messageId: number, emoji: string): Promise<void> {
     if (!bot) return
     await bot.api.setMessageReaction(chatId, messageId, [
       { type: "emoji", emoji: emoji as any },
@@ -408,21 +323,61 @@ export namespace TelegramListener {
     })
   }
 
-  export function getBot() {
-    return bot
-  }
+  export function getBot() { return bot }
+  export function getOwnerChatId() { return ownerChatId }
+  export function getMode() { return mode }
 
-  export function getOwnerChatId() {
-    return ownerChatId
-  }
-
-  export function getMode() {
-    return mode
-  }
+  // ── Internal helpers ──────────────────────────────────────────────
 
   function isAllowed(ctx: Context): boolean {
-    if (allowedUsers.size === 0) return true // no restrictions
+    if (allowedUsers.size === 0) return true
     return ctx.from ? allowedUsers.has(ctx.from.id) : false
+  }
+
+  async function downloadFile(fileId: string, filename: string): Promise<string | undefined> {
+    if (!bot) return undefined
+    try {
+      const file = await bot.api.getFile(fileId)
+      if (!file.file_path) return undefined
+
+      const url = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`
+      const res = await fetch(url)
+      if (!res.ok) return undefined
+
+      const inboxDir = path.join(Global.Path.data, "inbox")
+      fs.mkdirSync(inboxDir, { recursive: true })
+
+      const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const destPath = path.join(inboxDir, `${Date.now()}-${safeName}`)
+      const buffer = await res.arrayBuffer()
+      fs.writeFileSync(destPath, Buffer.from(buffer))
+
+      log.info("downloaded telegram file", { fileId, path: destPath, size: buffer.byteLength })
+      return destPath
+    } catch (err) {
+      log.error("failed to download telegram file", { fileId, error: err })
+      return undefined
+    }
+  }
+
+  async function retryTelegram<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+    let lastError: unknown
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn()
+      } catch (err: any) {
+        lastError = err
+        const status = err?.error_code ?? err?.status
+        if (status === 429 || status >= 500 || err?.code === "ECONNRESET" || err?.code === "ETIMEDOUT") {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
+          log.warn("telegram API retry", { attempt, delay, error: err?.message })
+          await new Promise((r) => setTimeout(r, delay))
+          continue
+        }
+        throw err
+      }
+    }
+    throw lastError
   }
 
   function splitMessage(text: string, maxLength: number): string[] {
@@ -437,10 +392,8 @@ export namespace TelegramListener {
         break
       }
 
-      // Try to split at a newline
       let splitIndex = remaining.lastIndexOf("\n", maxLength)
       if (splitIndex === -1 || splitIndex < maxLength / 2) {
-        // Try space
         splitIndex = remaining.lastIndexOf(" ", maxLength)
       }
       if (splitIndex === -1 || splitIndex < maxLength / 2) {

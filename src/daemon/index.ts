@@ -1,15 +1,13 @@
 import path from "path"
 import { Log } from "@/util/log"
-import { InputRouter } from "@/input/router"
-import { InputQueue } from "@/input/queue"
 import { TelegramListener } from "@/telegram/listener"
 import { CronScheduler } from "@/autonomy/cron"
 import { PollerManager } from "@/autonomy/poller"
 import { IdleLoop } from "@/autonomy/idle"
 import { startDecay, stopDecay } from "@/autonomy/decay"
-import { isAutonomousSource } from "@/autonomy/filter"
+import { isAutonomousSource, shouldDropResponse, stripHeartbeatToken } from "@/autonomy/filter"
+import { InputQueue } from "@/input/queue"
 import { Tunnel } from "@/tunnel"
-import { deliverResponse } from "@/input/response"
 import { flushFromCompaction } from "@/memory/flush"
 import { SessionCompaction } from "@/session/compaction"
 import { Bus } from "@/bus"
@@ -28,29 +26,88 @@ export namespace Daemon {
   let compactionCount = 0
   const COMPACTIONS_BEFORE_ROTATION = 5
 
-  export interface StartOptions {
-    /** Local server port (needed for ngrok forwarding) */
-    serverPort: number
+  /**
+   * Serialization lock for LLM calls. Only one prompt runs at a time.
+   * User messages get priority — autonomy events yield when a user message is waiting.
+   */
+  let lock = Promise.resolve()
+  let userWaiting = false
+
+  /**
+   * Process a user message through the LLM session (priority).
+   * Sets userWaiting flag so autonomy events yield.
+   */
+  export function processUserMessage(
+    input: string,
+    opts?: { file?: { path: string; mime: string; name?: string } },
+  ): Promise<string | undefined> {
+    userWaiting = true
+    const result = lock.then(async () => {
+      userWaiting = false
+      return runPrompt(input, opts)
+    })
+    lock = result.then(() => {}, () => {})
+    return result
   }
 
   /**
-   * Start all daemon subsystems:
-   * 1. Load .env for credentials
-   * 2. Start ngrok tunnel if configured
-   * 3. Create a daemon session for the agent
-   * 4. Wire input router → session prompt
-   * 5. Start Telegram (webhook or polling)
-   * 6. Start autonomy modules (cron, idle, decay)
-   * 7. Start input router loop
+   * Process an autonomy message through the LLM session (lower priority).
+   * Returns undefined if a user message is waiting (caller should re-enqueue).
    */
-  export async function start(opts: StartOptions) {
-    // Load agent-specific .env
-    loadEnv()
+  export function processAutonomyMessage(
+    input: string,
+    opts?: { system?: string },
+  ): Promise<string | undefined> {
+    if (userWaiting) return Promise.resolve(undefined)
+    const result = lock.then(async () => {
+      return runPrompt(input, opts)
+    })
+    lock = result.then(() => {}, () => {})
+    return result
+  }
 
-    // Pre-flight validation
+  /** Shared LLM call logic */
+  async function runPrompt(
+    input: string,
+    opts?: {
+      system?: string
+      file?: { path: string; mime: string; name?: string }
+    },
+  ): Promise<string | undefined> {
+    const parts: Array<
+      | { type: "text"; text: string }
+      | { type: "file"; mime: string; url: string; filename?: string }
+    > = [{ type: "text", text: input }]
+
+    if (opts?.file) {
+      parts.push({
+        type: "file",
+        mime: opts.file.mime,
+        url: `file://${opts.file.path}`,
+        filename: opts.file.name ?? path.basename(opts.file.path),
+      })
+    }
+
+    const messageID = Identifier.ascending("message")
+    const llmResult = await SessionPrompt.prompt({
+      sessionID: sessionID!,
+      messageID,
+      system: opts?.system,
+      parts,
+    })
+
+    return extractResponseText(llmResult)
+  }
+
+  /**
+   * Start all daemon subsystems.
+   * @param serverPort — the Hono server port (used for webhook/ngrok tunnel)
+   */
+  export async function start(serverPort?: number) {
+    loadEnv()
     await validate()
 
-    // Resume existing daemon session or create a new one
+    // Resume or create daemon session
     const autoApprove: Session.Info["permission"] = [{ permission: "*", pattern: "*", action: "allow" }]
     const previousID = loadSessionID()
 
@@ -58,7 +115,6 @@ export namespace Daemon {
       const existing = await Session.get(previousID).catch(() => undefined)
       if (existing) {
         sessionID = existing.id
-        // Ensure permissions are set for resumed session
         await Session.setPermission({ sessionID: existing.id, permission: autoApprove })
         log.info("resumed daemon session", { sessionID })
       }
@@ -74,97 +130,45 @@ export namespace Daemon {
       log.info("created new daemon session", { sessionID })
     }
 
-    // Wire input router to process events through the session
-    InputRouter.setHandler(async (event) => {
-      const currentSessionID = sessionID!
-      const input = InputRouter.formatInput(event)
+    // Wire Telegram message handler — grammY calls this directly, user gets priority
+    TelegramListener.onMessage(async (event) => {
       IdleLoop.touch()
 
-      // Telegram UX: show typing indicator + acknowledge receipt
-      const chatId = event.metadata?.chatId as number | undefined
-      const messageId = event.metadata?.messageId as number | undefined
-      let typingInterval: ReturnType<typeof setInterval> | undefined
-      if (event.source === "telegram" && chatId) {
-        // React to show we received it
-        if (messageId) {
-          TelegramListener.react(chatId, messageId, "👀").catch(() => {})
-        }
-        // Send "typing..." indicator, repeat every 5s (Telegram clears it after ~5s)
-        const sendTyping = () => {
-          TelegramListener.getBot()?.api.sendChatAction(chatId, "typing").catch(() => {})
-        }
-        sendTyping()
-        typingInterval = setInterval(sendTyping, 5000)
-      }
-
-      try {
-        // For autonomous events, inject the autonomous-behavior skill into context
-        let system: string | undefined
-        if (isAutonomousSource(event.source)) {
-          const skill = await Skill.get("autonomous-behavior").catch(() => undefined)
-          if (skill) system = skill.content
-        }
-
-        // Build parts: text + optional file attachment for multimodal analysis
-        const parts: Array<{ type: "text"; text: string } | { type: "file"; mime: string; url: string; filename?: string }> = [
-          { type: "text", text: input },
-        ]
-
-        // If the event has a downloaded file (photo, document, etc.), attach it
-        const filePath = event.metadata?.filePath as string | undefined
-        const mime = event.metadata?.mime as string | undefined
-        if (filePath && mime) {
-          parts.push({
-            type: "file",
-            mime,
-            url: `file://${filePath}`,
-            filename: (event.metadata?.fileName as string) ?? path.basename(filePath),
-          })
-        }
-
-        const messageID = Identifier.ascending("message")
-        const result = await SessionPrompt.prompt({
-          sessionID: currentSessionID,
-          messageID,
-          system,
-          parts,
-        })
-
-        // Extract text from the assistant response
-        return extractResponseText(result)
-      } finally {
-        if (typingInterval) clearInterval(typingInterval)
-      }
+      const input = `[telegram from ${event.sender}] ${event.content}`
+      return processUserMessage(input, {
+        file: event.file,
+      })
     })
 
-    InputRouter.onResponse(deliverResponse)
-
-    // Start Telegram if configured — always start in polling mode first for
-    // instant responsiveness. Upgrade to webhook in the background if ngrok is configured.
+    // Start Telegram
     const telegramToken = process.env.TELEGRAM_BOT_TOKEN
     if (telegramToken) {
       const ownerId = process.env.TELEGRAM_OWNER_ID
         ? parseInt(process.env.TELEGRAM_OWNER_ID, 10)
         : undefined
+      const ngrokToken = process.env.NGROK_AUTHTOKEN
 
-      // Start polling immediately — bot is responsive right away
-      await TelegramListener.start({
+      const telegramConfig: TelegramListener.Config = {
         token: telegramToken,
         ownerChatId: ownerId,
         allowedUsers: ownerId ? [ownerId] : [],
-      })
-      log.info("telegram started", { mode: "polling", ownerChatId: ownerId })
+      }
 
-      // If ngrok is configured, upgrade to webhook mode in the background
-      const ngrokToken = process.env.NGROK_AUTHTOKEN
       if (ngrokToken) {
-        upgradeToWebhook(opts.serverPort, ngrokToken, process.env.NGROK_DOMAIN, {
-          token: telegramToken,
-          ownerChatId: ownerId,
-          allowedUsers: ownerId ? [ownerId] : [],
-        }).catch((err) => {
-          log.error("webhook upgrade failed, staying on polling", { error: err })
+        if (!serverPort) throw new Error("serverPort required for webhook mode (ngrok tunnels to Hono server)")
+        // Webhook mode: Telegram → ngrok → Hono /telegram route → grammY
+        await TelegramListener.start({ ...telegramConfig, deferStart: true })
+        const publicUrl = await Tunnel.start({
+          authtoken: ngrokToken,
+          port: serverPort,
+          domain: process.env.NGROK_DOMAIN,
         })
+        await TelegramListener.switchToWebhook(publicUrl)
+        log.info("telegram started", { mode: "webhook", ownerChatId: ownerId, url: publicUrl })
+      } else {
+        // Polling mode
+        await TelegramListener.start(telegramConfig)
+        log.info("telegram started", { mode: "polling", ownerChatId: ownerId })
       }
     } else {
       log.warn("TELEGRAM_BOT_TOKEN not set, skipping Telegram")
@@ -180,7 +184,7 @@ export namespace Daemon {
       CronScheduler.start(crons)
     }
 
-    // Flush compaction summaries to long-term memory + rotate session after N compactions
+    // Flush compaction summaries to long-term memory + rotate session
     Bus.subscribe(SessionCompaction.Event.Compacted, async (event) => {
       await flushFromCompaction(event.properties.sessionID).catch((err) => {
         log.error("memory flush failed", { error: err })
@@ -194,7 +198,7 @@ export namespace Daemon {
       }
     })
 
-    // Start autonomy
+    // Start autonomy — cron/idle/poller events go through processMessage
     IdleLoop.start({
       baseInterval: process.env.IDLE_BASE_INTERVAL ? parseInt(process.env.IDLE_BASE_INTERVAL) : undefined,
       escalationThreshold: process.env.IDLE_ESCALATION ? parseInt(process.env.IDLE_ESCALATION) : undefined,
@@ -202,10 +206,8 @@ export namespace Daemon {
     })
     startDecay()
 
-    // Start the input router loop in background (it blocks until stopped)
-    InputRouter.start().catch((err) => {
-      log.error("input router crashed", { error: err })
-    })
+    // Drain autonomy events from InputQueue (cron, idle, poller still enqueue there)
+    startAutonomyConsumer()
 
     log.info("daemon started", {
       telegram: !!telegramToken,
@@ -213,11 +215,58 @@ export namespace Daemon {
     })
   }
 
+  let autonomyRunning = false
+
+  /** Consume events from InputQueue (used by cron/idle/poller). */
+  async function startAutonomyConsumer() {
+    autonomyRunning = true
+
+    while (autonomyRunning) {
+      try {
+        const event = await InputQueue.dequeue()
+        if (!autonomyRunning) break
+
+        // Yield to user messages — re-enqueue and wait
+        if (userWaiting) {
+          InputQueue.enqueue(event)
+          log.info("autonomy event deferred for user message", { id: event.id, source: event.source })
+          await new Promise((r) => setTimeout(r, 500))
+          continue
+        }
+
+        log.info("processing autonomy event", { id: event.id, source: event.source })
+
+        // Load autonomous-behavior skill for system prompt
+        let system: string | undefined
+        if (isAutonomousSource(event.source)) {
+          const skill = await Skill.get("autonomous-behavior").catch(() => undefined)
+          if (skill) system = skill.content
+        }
+
+        const response = await processAutonomyMessage(event.content, { system })
+
+        // Deliver response to Telegram owner (filter heartbeat/ack responses)
+        if (response && isAutonomousSource(event.source)) {
+          if (!shouldDropResponse(response, event.source)) {
+            const cleaned = stripHeartbeatToken(response)
+            if (cleaned) {
+              await TelegramListener.send(undefined, cleaned)
+              log.info("autonomy response delivered", { source: event.source, length: cleaned.length })
+            }
+          }
+        }
+      } catch (err: any) {
+        if (!autonomyRunning) break
+        log.error("autonomy consumer error", { error: err })
+      }
+    }
+  }
+
   /** Stop all daemon subsystems */
   export async function stop() {
     log.info("daemon stopping")
 
-    InputRouter.stop()
+    autonomyRunning = false
     CronScheduler.stop()
     PollerManager.stop()
     IdleLoop.stop()
@@ -228,30 +277,23 @@ export namespace Daemon {
     log.info("daemon stopped")
   }
 
-  /** Get the current daemon session ID */
-  export function getSessionID() {
-    return sessionID
-  }
+  export function getSessionID() { return sessionID }
 
-  /** Reset the daemon session — next start will create a fresh one */
   export function resetSession() {
     clearSessionID()
     sessionID = undefined
   }
 
-  /** Validate critical configuration before starting subsystems */
+  /** Validate critical configuration */
   async function validate() {
-    // SOUL.md is required in daemon mode
     loadSoul({ required: true })
 
-    // At least one LLM provider must be configured (check both .env and auth.json)
     const envKeys = Object.keys(process.env).filter((k) => k.endsWith("_API_KEY"))
     if (envKeys.length > 0) {
       log.info("pre-flight validation passed", { providers: envKeys.length, source: "env" })
       return
     }
 
-    // Check auth.json (credentials stored by /connect in TUI)
     const { Auth } = await import("@/auth")
     const authEntries = await Auth.all()
     if (Object.keys(authEntries).length > 0) {
@@ -259,36 +301,9 @@ export namespace Daemon {
       return
     }
 
-    throw new Error(
-      "No LLM provider configured. Use /connect in the TUI or add an API key to .env",
-    )
+    throw new Error("No LLM provider configured. Use /connect in the TUI or add an API key to .env")
   }
 
-  /**
-   * Upgrade from polling to webhook mode in the background.
-   * Starts ngrok tunnel, then restarts Telegram with the webhook URL.
-   * If it fails, the bot stays on polling — no interruption.
-   */
-  async function upgradeToWebhook(
-    serverPort: number,
-    ngrokToken: string,
-    ngrokDomain: string | undefined,
-    telegramConfig: TelegramListener.Config,
-  ) {
-    const webhookUrl = await Tunnel.start({
-      authtoken: ngrokToken,
-      port: serverPort,
-      domain: ngrokDomain,
-    })
-    log.info("ngrok tunnel established, upgrading to webhook", { url: webhookUrl })
-
-    // Stop polling and restart with webhook
-    await TelegramListener.stop()
-    await TelegramListener.start({ ...telegramConfig, webhookUrl })
-    log.info("telegram upgraded to webhook mode", { url: webhookUrl })
-  }
-
-  /** Rotate to a fresh session after too many compactions */
   async function rotateSession() {
     const oldID = sessionID
     const autoApprove: Session.Info["permission"] = [{ permission: "*", pattern: "*", action: "allow" }]

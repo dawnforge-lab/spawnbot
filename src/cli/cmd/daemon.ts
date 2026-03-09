@@ -23,17 +23,6 @@ export const DaemonCommand = cmd({
   handler: async (args) => {
     const opts = await resolveNetworkOptions(args)
 
-    // Pre-register telegram webhook route BEFORE Server.listen() so it has
-    // priority over the catch-all proxy route (which serves the TUI frontend).
-    // The handler is resolved dynamically since the bot may upgrade from
-    // polling to webhook mode in the background.
-    let TelegramListenerRef: typeof import("../../telegram/listener").TelegramListener | undefined
-    Server.registerRoute("post", "/telegram/:secret", (c: any) => {
-      const handler = TelegramListenerRef?.webhookHandler()
-      if (handler) return handler(c)
-      return c.json({ error: "not ready" }, 503)
-    })
-
     const server = Server.listen(opts)
     const port = server.port!
     console.log(`spawnbot daemon listening on http://${server.hostname}:${port}`)
@@ -44,12 +33,7 @@ export const DaemonCommand = cmd({
       directory: args.directory as string,
       init: InstanceBootstrap,
       async fn() {
-        await Daemon.start({ serverPort: port })
-
-        // Store reference so the webhook route can resolve the handler dynamically.
-        // The bot starts in polling and may upgrade to webhook in the background.
-        const { TelegramListener } = await import("../../telegram/listener")
-        TelegramListenerRef = TelegramListener
+        await Daemon.start(port)
 
         // Write port file AFTER everything is wired so the bash script
         // doesn't think the daemon is ready when it's still initializing

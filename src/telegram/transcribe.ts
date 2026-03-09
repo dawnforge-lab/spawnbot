@@ -16,6 +16,7 @@ export namespace Transcribe {
       const formData = new FormData()
       formData.append("file", file)
       formData.append("model", "whisper-1")
+      formData.append("language", process.env.WHISPER_LANGUAGE ?? "en")
 
       const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
         method: "POST",
