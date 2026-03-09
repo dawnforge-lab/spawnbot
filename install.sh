@@ -165,9 +165,30 @@ export PATH="$BIN_DIR:$PATH"
 # --- Step 6: Create workspace with default SOUL.md ---
 WORKSPACE_DIR="$INSTALL_DIR/workspace"
 SOUL_FILE="$WORKSPACE_DIR/SOUL.md"
+mkdir -p "$WORKSPACE_DIR"
+
+# Migrate: move old config files from install root to workspace
+OLD_SOUL="$INSTALL_DIR/SOUL.md"
+if [[ -f "$OLD_SOUL" && ! -f "$SOUL_FILE" ]]; then
+  mv "$OLD_SOUL" "$SOUL_FILE"
+  info "Migrated SOUL.md to workspace/"
+elif [[ -f "$OLD_SOUL" ]]; then
+  rm "$OLD_SOUL"
+  info "Removed old SOUL.md from install root (workspace copy exists)"
+fi
+
+for f in USER.md GOALS.md PLAYBOOK.md SKILLS.md CRONS.yaml POLLERS.yaml .env; do
+  old="$INSTALL_DIR/$f"
+  new="$WORKSPACE_DIR/$f"
+  if [[ -f "$old" && ! -f "$new" ]]; then
+    mv "$old" "$new"
+    info "Migrated $f to workspace/"
+  elif [[ -f "$old" ]]; then
+    warn "Both $old and $new exist — keeping workspace copy, remove old one manually"
+  fi
+done
 
 if [[ ! -f "$SOUL_FILE" ]]; then
-  mkdir -p "$WORKSPACE_DIR"
   cp "$INSTALL_DIR/src/soul/default-soul.txt" "$SOUL_FILE"
 fi
 
