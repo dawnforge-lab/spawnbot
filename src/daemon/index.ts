@@ -48,7 +48,7 @@ export namespace Daemon {
     loadEnv()
 
     // Pre-flight validation
-    validate()
+    await validate()
 
     // Start ngrok tunnel if authtoken is available
     let webhookUrl: string | undefined
@@ -224,18 +224,28 @@ export namespace Daemon {
   }
 
   /** Validate critical configuration before starting subsystems */
-  function validate() {
+  async function validate() {
     // SOUL.md is required in daemon mode
     loadSoul({ required: true })
 
-    // At least one LLM provider must be configured
-    const providerKeys = Object.keys(process.env).filter((k) => k.endsWith("_API_KEY"))
-    if (providerKeys.length === 0) {
-      throw new Error(
-        "No LLM provider API key found. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or another provider key in .env",
-      )
+    // At least one LLM provider must be configured (check both .env and auth.json)
+    const envKeys = Object.keys(process.env).filter((k) => k.endsWith("_API_KEY"))
+    if (envKeys.length > 0) {
+      log.info("pre-flight validation passed", { providers: envKeys.length, source: "env" })
+      return
     }
-    log.info("pre-flight validation passed", { providers: providerKeys.length })
+
+    // Check auth.json (credentials stored by /connect in TUI)
+    const { Auth } = await import("@/auth")
+    const authEntries = await Auth.all()
+    if (Object.keys(authEntries).length > 0) {
+      log.info("pre-flight validation passed", { providers: Object.keys(authEntries).length, source: "auth.json" })
+      return
+    }
+
+    throw new Error(
+      "No LLM provider configured. Use /connect in the TUI or add an API key to .env",
+    )
   }
 
   /** Rotate to a fresh session after too many compactions */
