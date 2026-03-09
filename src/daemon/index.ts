@@ -139,16 +139,21 @@ export namespace Daemon {
         ? parseInt(process.env.TELEGRAM_OWNER_ID, 10)
         : undefined
 
-      TelegramListener.start({
-        token: telegramToken,
-        ownerChatId: ownerId,
-        allowedUsers: ownerId ? [ownerId] : [],
-        webhookUrl,
-      })
-      log.info("telegram started", {
-        mode: TelegramListener.getMode(),
-        ownerChatId: ownerId,
-      })
+      try {
+        TelegramListener.start({
+          token: telegramToken,
+          ownerChatId: ownerId,
+          allowedUsers: ownerId ? [ownerId] : [],
+          webhookUrl,
+        })
+        log.info("telegram started", {
+          mode: TelegramListener.getMode(),
+          ownerChatId: ownerId,
+        })
+      } catch (err) {
+        log.error("telegram failed to start (continuing without it)", { error: err })
+        console.error("Warning: Telegram failed to start —", err instanceof Error ? err.message : String(err))
+      }
     } else {
       log.warn("TELEGRAM_BOT_TOKEN not set, skipping Telegram")
     }

@@ -26,15 +26,17 @@ export const DaemonCommand = cmd({
     const port = server.port!
     console.log(`spawnbot daemon listening on http://${server.hostname}:${port}`)
 
-    // Write port file so the TUI can find us
     const { writePortFile, removePortFile } = await import("../../daemon/state")
-    writePortFile(port)
 
     await Instance.provide({
       directory: args.directory as string,
       init: InstanceBootstrap,
       async fn() {
         await Daemon.start({ serverPort: port })
+
+        // Write port file AFTER successful startup so the bash script
+        // doesn't think the daemon is ready when it's about to crash
+        writePortFile(port)
 
         if (args.dryRun) {
           await runDryRun()
