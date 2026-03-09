@@ -72,7 +72,7 @@ export namespace TelegramListener {
    * Mount this at /telegram/:secret on your Hono app.
    */
   export function webhookHandler() {
-    if (!bot) return undefined
+    if (!bot || mode !== "webhook") return undefined
     return webhookCallback(bot, "hono")
   }
 
