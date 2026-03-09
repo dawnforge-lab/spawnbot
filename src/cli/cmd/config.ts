@@ -6,6 +6,27 @@ import { ModelsDev } from "../../provider/models"
 import { map, pipe, sortBy, values } from "remeda"
 import fs from "fs"
 import path from "path"
+/** Resolve the workspace directory (same logic as bin/spawnbot resolve_workspace) */
+function resolveWorkspace(): string {
+  // 1. Explicit env var
+  if (process.env.SPAWNBOT_WORKSPACE) return process.env.SPAWNBOT_WORKSPACE
+  // 2. Check workspace/.env for SPAWNBOT_WORKSPACE
+  // import.meta.dir = src/cli/cmd, so installDir = 3 levels up
+  const installDir = path.resolve(import.meta.dir, "..", "..", "..")
+  const envFile = path.join(installDir, "workspace", ".env")
+  if (fs.existsSync(envFile)) {
+    const content = fs.readFileSync(envFile, "utf-8")
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim()
+      if (trimmed.startsWith("SPAWNBOT_WORKSPACE=")) {
+        const val = trimmed.slice("SPAWNBOT_WORKSPACE=".length).trim()
+        if (val) return val
+      }
+    }
+  }
+  // 3. Default: installDir/workspace
+  return path.join(installDir, "workspace")
+}
 
 export const ConfigCommand = cmd({
   command: "config",
@@ -14,13 +35,15 @@ export const ConfigCommand = cmd({
     yargs.option("directory", {
       type: "string",
       describe: "workspace directory",
-      default: process.env.SPAWNBOT_ORIGINAL_CWD ?? process.cwd(),
     }),
   handler: async (args) => {
-    const workspace = args.directory as string
+    const workspace = (args.directory as string | undefined) ?? resolveWorkspace()
+
+    fs.mkdirSync(workspace, { recursive: true })
 
     UI.empty()
     prompts.intro(UI.logo() + "  configuration")
+    prompts.log.info(`Workspace: ${workspace}`)
 
     // --- Section 1: LLM Provider ---
     await configureProvider()
