@@ -25,10 +25,12 @@ export const DaemonCommand = cmd({
 
     // Pre-register telegram webhook route BEFORE Server.listen() so it has
     // priority over the catch-all proxy route (which serves the TUI frontend).
-    // The actual grammY handler is wired in immediately after Daemon.start().
-    let telegramHandler: ((c: any) => any) | undefined
+    // The handler is resolved dynamically since the bot may upgrade from
+    // polling to webhook mode in the background.
+    let TelegramListenerRef: typeof import("../../telegram/listener").TelegramListener | undefined
     Server.registerRoute("post", "/telegram/:secret", (c: any) => {
-      if (telegramHandler) return telegramHandler(c)
+      const handler = TelegramListenerRef?.webhookHandler()
+      if (handler) return handler(c)
       return c.json({ error: "not ready" }, 503)
     })
 
@@ -44,15 +46,10 @@ export const DaemonCommand = cmd({
       async fn() {
         await Daemon.start({ serverPort: port })
 
-        // Wire the telegram webhook handler IMMEDIATELY after Daemon.start()
-        // returns — setWebhook is now awaited inside start(), so Telegram
-        // will begin delivering updates right away.
+        // Store reference so the webhook route can resolve the handler dynamically.
+        // The bot starts in polling and may upgrade to webhook in the background.
         const { TelegramListener } = await import("../../telegram/listener")
-        const handler = TelegramListener.webhookHandler()
-        if (handler) {
-          telegramHandler = handler
-          console.log(`telegram webhook mode active`)
-        }
+        TelegramListenerRef = TelegramListener
 
         // Write port file AFTER everything is wired so the bash script
         // doesn't think the daemon is ready when it's still initializing

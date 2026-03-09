@@ -50,20 +50,6 @@ export namespace Daemon {
     // Pre-flight validation
     await validate()
 
-    // Start ngrok tunnel if authtoken is available
-    let webhookUrl: string | undefined
-    const ngrokToken = process.env.NGROK_AUTHTOKEN
-    const ngrokDomain = process.env.NGROK_DOMAIN
-
-    if (ngrokToken) {
-      webhookUrl = await Tunnel.start({
-        authtoken: ngrokToken,
-        port: opts.serverPort,
-        domain: ngrokDomain,
-      })
-      log.info("ngrok tunnel established", { url: webhookUrl })
-    }
-
     // Resume existing daemon session or create a new one
     const autoApprove: Session.Info["permission"] = [{ permission: "*", pattern: "*", action: "allow" }]
     const previousID = loadSessionID()
@@ -94,65 +80,91 @@ export namespace Daemon {
       const input = InputRouter.formatInput(event)
       IdleLoop.touch()
 
-      // For autonomous events, inject the autonomous-behavior skill into context
-      let system: string | undefined
-      if (isAutonomousSource(event.source)) {
-        const skill = await Skill.get("autonomous-behavior").catch(() => undefined)
-        if (skill) system = skill.content
+      // Telegram UX: show typing indicator + acknowledge receipt
+      const chatId = event.metadata?.chatId as number | undefined
+      const messageId = event.metadata?.messageId as number | undefined
+      let typingInterval: ReturnType<typeof setInterval> | undefined
+      if (event.source === "telegram" && chatId) {
+        // React to show we received it
+        if (messageId) {
+          TelegramListener.react(chatId, messageId, "👀").catch(() => {})
+        }
+        // Send "typing..." indicator, repeat every 5s (Telegram clears it after ~5s)
+        const sendTyping = () => {
+          TelegramListener.getBot()?.api.sendChatAction(chatId, "typing").catch(() => {})
+        }
+        sendTyping()
+        typingInterval = setInterval(sendTyping, 5000)
       }
 
-      // Build parts: text + optional file attachment for multimodal analysis
-      const parts: Array<{ type: "text"; text: string } | { type: "file"; mime: string; url: string; filename?: string }> = [
-        { type: "text", text: input },
-      ]
+      try {
+        // For autonomous events, inject the autonomous-behavior skill into context
+        let system: string | undefined
+        if (isAutonomousSource(event.source)) {
+          const skill = await Skill.get("autonomous-behavior").catch(() => undefined)
+          if (skill) system = skill.content
+        }
 
-      // If the event has a downloaded file (photo, document, etc.), attach it
-      const filePath = event.metadata?.filePath as string | undefined
-      const mime = event.metadata?.mime as string | undefined
-      if (filePath && mime) {
-        parts.push({
-          type: "file",
-          mime,
-          url: `file://${filePath}`,
-          filename: (event.metadata?.fileName as string) ?? path.basename(filePath),
+        // Build parts: text + optional file attachment for multimodal analysis
+        const parts: Array<{ type: "text"; text: string } | { type: "file"; mime: string; url: string; filename?: string }> = [
+          { type: "text", text: input },
+        ]
+
+        // If the event has a downloaded file (photo, document, etc.), attach it
+        const filePath = event.metadata?.filePath as string | undefined
+        const mime = event.metadata?.mime as string | undefined
+        if (filePath && mime) {
+          parts.push({
+            type: "file",
+            mime,
+            url: `file://${filePath}`,
+            filename: (event.metadata?.fileName as string) ?? path.basename(filePath),
+          })
+        }
+
+        const messageID = Identifier.ascending("message")
+        const result = await SessionPrompt.prompt({
+          sessionID: currentSessionID,
+          messageID,
+          system,
+          parts,
         })
+
+        // Extract text from the assistant response
+        return extractResponseText(result)
+      } finally {
+        if (typingInterval) clearInterval(typingInterval)
       }
-
-      const messageID = Identifier.ascending("message")
-      const result = await SessionPrompt.prompt({
-        sessionID: currentSessionID,
-        messageID,
-        system,
-        parts,
-      })
-
-      // Extract text from the assistant response
-      return extractResponseText(result)
     })
 
     InputRouter.onResponse(deliverResponse)
 
-    // Start Telegram if configured
+    // Start Telegram if configured — always start in polling mode first for
+    // instant responsiveness. Upgrade to webhook in the background if ngrok is configured.
     const telegramToken = process.env.TELEGRAM_BOT_TOKEN
     if (telegramToken) {
       const ownerId = process.env.TELEGRAM_OWNER_ID
         ? parseInt(process.env.TELEGRAM_OWNER_ID, 10)
         : undefined
 
-      try {
-        await TelegramListener.start({
+      // Start polling immediately — bot is responsive right away
+      await TelegramListener.start({
+        token: telegramToken,
+        ownerChatId: ownerId,
+        allowedUsers: ownerId ? [ownerId] : [],
+      })
+      log.info("telegram started", { mode: "polling", ownerChatId: ownerId })
+
+      // If ngrok is configured, upgrade to webhook mode in the background
+      const ngrokToken = process.env.NGROK_AUTHTOKEN
+      if (ngrokToken) {
+        upgradeToWebhook(opts.serverPort, ngrokToken, process.env.NGROK_DOMAIN, {
           token: telegramToken,
           ownerChatId: ownerId,
           allowedUsers: ownerId ? [ownerId] : [],
-          webhookUrl,
+        }).catch((err) => {
+          log.error("webhook upgrade failed, staying on polling", { error: err })
         })
-        log.info("telegram started", {
-          mode: TelegramListener.getMode(),
-          ownerChatId: ownerId,
-        })
-      } catch (err) {
-        log.error("telegram failed to start (continuing without it)", { error: err })
-        console.error("Warning: Telegram failed to start —", err instanceof Error ? err.message : String(err))
       }
     } else {
       log.warn("TELEGRAM_BOT_TOKEN not set, skipping Telegram")
@@ -197,7 +209,6 @@ export namespace Daemon {
 
     log.info("daemon started", {
       telegram: !!telegramToken,
-      ngrok: !!webhookUrl,
       crons: crons.length,
     })
   }
@@ -251,6 +262,30 @@ export namespace Daemon {
     throw new Error(
       "No LLM provider configured. Use /connect in the TUI or add an API key to .env",
     )
+  }
+
+  /**
+   * Upgrade from polling to webhook mode in the background.
+   * Starts ngrok tunnel, then restarts Telegram with the webhook URL.
+   * If it fails, the bot stays on polling — no interruption.
+   */
+  async function upgradeToWebhook(
+    serverPort: number,
+    ngrokToken: string,
+    ngrokDomain: string | undefined,
+    telegramConfig: TelegramListener.Config,
+  ) {
+    const webhookUrl = await Tunnel.start({
+      authtoken: ngrokToken,
+      port: serverPort,
+      domain: ngrokDomain,
+    })
+    log.info("ngrok tunnel established, upgrading to webhook", { url: webhookUrl })
+
+    // Stop polling and restart with webhook
+    await TelegramListener.stop()
+    await TelegramListener.start({ ...telegramConfig, webhookUrl })
+    log.info("telegram upgraded to webhook mode", { url: webhookUrl })
   }
 
   /** Rotate to a fresh session after too many compactions */
