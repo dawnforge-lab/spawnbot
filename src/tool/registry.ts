@@ -29,7 +29,7 @@ import { Truncate } from "./truncation"
 
 import { ApplyPatchTool } from "./apply_patch"
 import { MemoryStoreTool, MemoryRecallTool, MemoryBrowseTool, MemoryDeleteTool } from "./memory"
-import { TelegramSendTool, TelegramPhotoTool, TelegramReactTool } from "./telegram"
+import { TelegramPhotoTool, TelegramReactTool } from "./telegram"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
 
@@ -124,7 +124,7 @@ export namespace ToolRegistry {
       MemoryBrowseTool,
       MemoryDeleteTool,
       // Telegram tools — always registered, gracefully no-op when bot isn't running
-      TelegramSendTool,
+      // Note: tg_send removed — daemon auto-delivers all responses to Telegram
       TelegramPhotoTool,
       TelegramReactTool,
       ...(Flag.KILO_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),

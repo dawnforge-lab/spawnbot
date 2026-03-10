@@ -2,29 +2,6 @@ import z from "zod"
 import { Tool } from "./tool"
 import { TelegramListener } from "@/telegram/listener"
 
-export const TelegramSendTool = Tool.define("tg_send", {
-  description: `Send a proactive message to Telegram (for autonomous actions, notifications, or scheduled tasks only). Do NOT use this for replying to user messages — replies are delivered automatically. If no chat_id is provided, sends to the owner's chat. Supports Markdown formatting.`,
-  parameters: z.object({
-    text: z.string().describe("The message text to send (supports Markdown)"),
-    chat_id: z.coerce.number().optional().describe("Target chat ID (defaults to owner chat)"),
-  }),
-  async execute(params) {
-    const messageId = await TelegramListener.send(params.chat_id, params.text)
-    if (messageId === undefined) {
-      return {
-        title: "Send failed",
-        metadata: { messageId: undefined as number | undefined, sent: false },
-        output: "Failed to send message. Bot may not be running or no chat ID configured.",
-      }
-    }
-    return {
-      title: "Message sent",
-      metadata: { messageId: messageId as number | undefined, sent: true },
-      output: `Message sent (id: ${messageId})`,
-    }
-  },
-})
-
 export const TelegramPhotoTool = Tool.define("tg_photo", {
   description: `Send a photo to Telegram proactively (for autonomous actions only). Do NOT use this for replying to user messages. The photo can be a URL or a file_id.`,
   parameters: z.object({

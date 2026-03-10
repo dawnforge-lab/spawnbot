@@ -120,4 +120,4 @@ When you need TTS, use the `create-tool` skill to build a `tts-speak` tool in `t
 3. POST to `https://api.cartesia.ai/tts/bytes` with Sonic 3
 4. Save the audio buffer to a temp file (`/tmp/cartesia_tts_*.mp3`)
 5. Return the file path
-6. To send as voice message, use `tg_send` or `tg_photo` with the audio file path
+6. To send as voice message, use `tg_photo` with the audio file path
