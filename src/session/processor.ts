@@ -372,7 +372,11 @@ export namespace SessionProcessor {
             }
           } catch (e: any) {
             log.error("process", {
-              error: e,
+              error: e?.message ?? String(e),
+              name: e?.name,
+              status: e?.status,
+              code: e?.code,
+              cause: e?.cause?.message ?? String(e?.cause ?? ""),
               stack: JSON.stringify(e.stack),
             })
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })

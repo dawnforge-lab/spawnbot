@@ -181,7 +181,7 @@ attach_tui() {
   export SPAWNBOT_ORIGINAL_CWD="${PWD}"
   cd "$SPAWNBOT_DIR"
   exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" \
-    attach "http://127.0.0.1:${DAEMON_PORT}" --continue "${extra_args[@]}"
+    attach "http://127.0.0.1:${DAEMON_PORT}" --continue --dir "$WORKSPACE" "${extra_args[@]}"
 }
 
 # --- Commands ---
@@ -361,7 +361,7 @@ case "${1:-}" in
       export SPAWNBOT_ORIGINAL_CWD="${PWD}"
       cd "$SPAWNBOT_DIR"
       exec bun run --conditions=browser "$SPAWNBOT_DIR/src/index.ts" \
-        attach "http://127.0.0.1:${DAEMON_PORT}" --continue --prompt "/setup"
+        attach "http://127.0.0.1:${DAEMON_PORT}" --continue --dir "$WORKSPACE" --prompt "/setup"
     else
       echo ""
       echo "Daemon could not start. Run 'spawnbot config' to set up credentials,"

@@ -321,7 +321,11 @@ export namespace Daemon {
 
   /** Validate critical configuration */
   async function validate() {
-    loadSoul()
+    try {
+      loadSoul()
+    } catch {
+      log.warn("SOUL.md not found — agent will use default personality until /setup is run")
+    }
 
     const envKeys = Object.keys(process.env).filter((k) => k.endsWith("_API_KEY"))
     if (envKeys.length > 0) {

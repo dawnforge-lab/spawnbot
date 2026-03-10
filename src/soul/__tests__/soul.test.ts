@@ -27,8 +27,10 @@ describe("soul", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true })
   })
 
-  test("loadSoul throws when no SOUL.md exists", () => {
-    expect(() => loadSoul()).toThrow("SOUL.md not found")
+  test("loadSoul returns default template when no SOUL.md exists", () => {
+    const result = loadSoul()
+    expect(result).toContain("# Identity")
+    expect(result).toContain("autonomous AI agent")
   })
 
   test("defaultSoul returns template with identity placeholder", () => {

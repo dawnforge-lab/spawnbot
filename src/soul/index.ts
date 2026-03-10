@@ -52,7 +52,8 @@ export function loadSoul(): string {
   const soulPath = findFile(DOCS.soul)
 
   if (!soulPath) {
-    throw new Error("SOUL.md not found. Run 'spawnbot' and type /setup to create one.")
+    log.warn("SOUL.md not found — using default template. Run /setup to create one.")
+    return DEFAULT_SOUL
   }
 
   // mtime-based cache — avoid re-reading on every LLM turn
