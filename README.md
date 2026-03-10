@@ -28,7 +28,7 @@ The installer will:
 1. Clone spawnbot to `~/.spawnbot`
 2. Install all dependencies
 3. Add `spawnbot` to your PATH
-4. Create a default `SOUL.md` for you to review
+4. Launch the setup wizard to create your agent's identity (`SOUL.md`)
 
 ### Manual Install
 
@@ -96,6 +96,7 @@ Both flow into the same conversation. The agent sees `[telegram]` prefix for Tel
 | `spawnbot doctor` | Check configuration and dependencies |
 | `spawnbot run "message"` | One-shot: send a message and get a response |
 | `spawnbot reset` | Clear conversation history (fresh start) |
+| `spawnbot nuke` | Stop daemon + delete ALL data (full clean reset) |
 
 ### TUI Commands
 
@@ -164,6 +165,7 @@ All config lives in the workspace directory (`~/.spawnbot/workspace/` by default
   ├── PLAYBOOK.md                   # Action templates
   ├── SKILLS.md                     # Skills index (agent-maintained)
   ├── .env                          # API keys and secrets
+  ├── HEARTBEAT.md                  # Task board (agent checks periodically)
   ├── CRONS.yaml                    # Scheduled jobs
   ├── POLLERS.yaml                  # Feed pollers
   ├── spawnbot.json                 # Provider/model config
@@ -183,6 +185,7 @@ Override workspace location with `SPAWNBOT_WORKSPACE` env var or set it in `.env
 | `GOALS.md` | Current objectives and targets |
 | `PLAYBOOK.md` | Action templates and procedures |
 | `SKILLS.md` | Index of skills and tools (agent-maintained) |
+| `HEARTBEAT.md` | Task board — agent checks periodically and works on pending items |
 | `CRONS.yaml` | Scheduled jobs |
 | `POLLERS.yaml` | Feed/API pollers (e.g. RSS) |
 | `.env` | API keys and secrets |
@@ -238,6 +241,27 @@ Schedule autonomous tasks:
 ```
 
 Parse errors throw immediately — no silent failures.
+
+### HEARTBEAT.md
+
+A living task board that the agent checks periodically during idle time. Create it in the workspace to give your agent ongoing work:
+
+```markdown
+# Task Board
+
+- [ ] Review open GitHub issues and summarize any new ones
+- [~] Monitor deployment logs for errors (ongoing)
+- [x] Set up morning report cron job (done 2026-03-09)
+```
+
+**Task format:**
+- `- [ ]` — Pending task (agent will work on this)
+- `- [~]` — Ongoing/recurring task (agent checks in)
+- `- [x]` — Completed (agent skips it)
+
+The agent checks HEARTBEAT.md every 30 minutes (configurable via `IDLE_BASE_INTERVAL`). If the file is empty or contains only completed tasks, the check is skipped to save LLM tokens. The agent updates task statuses as it works — marking items done, adding notes and timestamps.
+
+Free-form text also works — any non-empty content (besides headers and completed items) triggers the agent to wake up and process it.
 
 ### POLLERS.yaml
 
@@ -384,7 +408,7 @@ spawnbot
   │     │     ├── Poller events (normal priority)
   │     │     └── Idle loop prompts (low priority)
   │     ├── Telegram (grammY) → Webhook (ngrok) or long polling
-  │     └── Autonomy → Cron, pollers, idle loop, memory decay
+  │     └── Autonomy → Cron, pollers, idle loop, heartbeat, memory decay
   ├── TUI (foreground, attaches to daemon)
   │     ├── Interactive chat → Same session as daemon
   │     ├── SOUL.md → System prompt (operating instructions + identity)
@@ -443,13 +467,17 @@ Log files are stored in `~/.local/share/spawnbot/log/`.
 
 ### Fresh start
 
-To reset the agent's conversation history:
+To reset the agent's conversation history (memories persist):
 
 ```bash
 spawnbot reset
 ```
 
-The agent will start a new conversation on the next start, but memories persist.
+For a complete clean slate (deletes everything — memories, auth, sessions, workspace):
+
+```bash
+spawnbot nuke
+```
 
 ### Common issues
 
@@ -480,20 +508,26 @@ curl -fsSL https://raw.githubusercontent.com/dawnforge-lab/spawnbot/main/install
 
 ## Uninstalling
 
+The easiest way to remove everything:
+
 ```bash
-# Stop the agent
-spawnbot stop
-
-# Remove the installation
-rm -rf ~/.spawnbot
-
-# Remove the PATH entry from your shell config (~/.bashrc, ~/.zshrc, etc.)
-# Look for the line: export PATH="$HOME/.spawnbot/bin:$PATH"
-
-# Optionally remove data
-rm -rf ~/.local/share/spawnbot
-rm -rf ~/.config/spawnbot
+spawnbot nuke
 ```
+
+This stops the daemon and deletes all spawnbot data across all directories:
+- `~/.spawnbot/` — source code and workspace
+- `~/.local/share/spawnbot/` — database, sessions, logs
+- `~/.config/spawnbot/` — auth and API keys
+- `~/.cache/spawnbot/` — LLM cache
+- `~/.local/state/spawnbot/` — state
+
+After nuking, remove the PATH entry from your shell config (`~/.bashrc`, `~/.zshrc`):
+```bash
+# Remove this line:
+export PATH="$HOME/.spawnbot/bin:$PATH"
+```
+
+To reinstall: `curl -fsSL https://raw.githubusercontent.com/dawnforge-lab/spawnbot/main/install.sh | bash`
 
 ## License
 

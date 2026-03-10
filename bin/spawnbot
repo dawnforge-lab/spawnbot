@@ -247,6 +247,42 @@ cmd_logs() {
   fi
 }
 
+cmd_nuke() {
+  echo ""
+  echo "This will PERMANENTLY DELETE:"
+  echo "  ~/.spawnbot/                          (source + workspace)"
+  echo "  ~/.local/share/spawnbot/              (database, sessions, logs)"
+  echo "  ~/.config/spawnbot/                   (auth, API keys)"
+  echo "  ~/.cache/spawnbot/                    (LLM cache)"
+  echo "  ~/.local/state/spawnbot/              (state)"
+  echo ""
+  echo "Your SOUL.md, memories, conversation history, and API keys will be GONE."
+  echo ""
+  read -p "Type 'nuke' to confirm: " -r
+  if [[ "$REPLY" != "nuke" ]]; then
+    echo "Aborted."
+    return 0
+  fi
+
+  # Stop daemon first
+  if daemon_running; then
+    cmd_stop
+  fi
+
+  rm -rf "$HOME/.spawnbot"
+  rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/spawnbot"
+  rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/spawnbot"
+  rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/spawnbot"
+  rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/spawnbot"
+
+  echo ""
+  echo "All spawnbot data removed."
+  echo "To reinstall: curl -fsSL https://raw.githubusercontent.com/dawnforge-lab/spawnbot/main/install.sh | bash"
+  echo ""
+  echo "Note: remove the PATH entry from your shell config (~/.bashrc, ~/.zshrc):"
+  echo "  export PATH=\"\$HOME/.spawnbot/bin:\$PATH\""
+}
+
 cmd_help() {
   echo "spawnbot — autonomous AI agent"
   echo ""
@@ -263,6 +299,7 @@ cmd_help() {
   echo "  config       Configure API keys, Telegram, ngrok, OpenAI"
   echo "  run \"msg\"    Send a one-shot message and get a response"
   echo "  reset        Clear conversation history (fresh start)"
+  echo "  nuke         Stop daemon + delete ALL data (full clean reset)"
   echo ""
   echo "Advanced:"
   echo "  daemon       Start daemon in foreground (for debugging)"
@@ -294,6 +331,9 @@ case "${1:-}" in
     ;;
   reset)
     run_cli reset-session
+    ;;
+  nuke)
+    cmd_nuke
     ;;
   help|-h|--help)
     cmd_help
