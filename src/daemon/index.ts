@@ -41,6 +41,7 @@ export namespace Daemon {
     input: string,
     opts?: { file?: { path: string; mime: string; name?: string } },
   ): Promise<string | undefined> {
+    IdleLoop.touch()
     userWaiting = true
     const result = lock.then(async () => {
       userWaiting = false
@@ -132,8 +133,6 @@ export namespace Daemon {
 
     // Wire Telegram message handler — grammY calls this directly, user gets priority
     TelegramListener.onMessage(async (event) => {
-      IdleLoop.touch()
-
       const input = `[telegram from ${event.sender}] ${event.content}`
       return processUserMessage(input, {
         file: event.file,
@@ -248,6 +247,7 @@ export namespace Daemon {
         }
 
         const response = await processAutonomyMessage(event.content, { system })
+        IdleLoop.touch() // Agent was active — reset idle timer
 
         // Deliver response to Telegram owner (filter heartbeat/ack responses)
         if (response && isAutonomousSource(event.source)) {
