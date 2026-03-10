@@ -72,6 +72,17 @@ export function loadCrons(): CronScheduler.Job[] {
     if (!Array.isArray(parsed)) {
       throw new Error(`CRONS.yaml at ${cronPath} must be a YAML array`)
     }
+    for (const [i, entry] of (parsed as any[]).entries()) {
+      if (typeof entry?.name !== "string" || !entry.name) {
+        throw new Error(`CRONS.yaml[${i}]: missing or invalid "name" (must be a string)`)
+      }
+      if (typeof entry?.schedule !== "string" || !entry.schedule) {
+        throw new Error(`CRONS.yaml[${i}]: missing or invalid "schedule" (must be a cron expression)`)
+      }
+      if (typeof entry?.prompt !== "string" || !entry.prompt) {
+        throw new Error(`CRONS.yaml[${i}]: missing or invalid "prompt" (must be a string)`)
+      }
+    }
     log.info("loaded crons", { path: cronPath, count: parsed.length })
     return parsed as CronScheduler.Job[]
   }

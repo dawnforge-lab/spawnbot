@@ -1,5 +1,3 @@
-import { Ripgrep } from "../file/ripgrep"
-
 import { Instance } from "../project/instance"
 
 import type { Provider } from "@/provider/provider"
@@ -37,16 +35,6 @@ export namespace SystemPrompt {
         ...editorContextEnvLines(editorContext),
         `</env>`,
         ...(docsRef ? [docsRef] : []),
-        `<directories>`,
-        `  ${
-          project.vcs === "git" && false
-            ? await Ripgrep.tree({
-                cwd: Instance.directory,
-                limit: 50,
-              })
-            : ""
-        }`,
-        `</directories>`,
       ].join("\n"),
     ]
   }

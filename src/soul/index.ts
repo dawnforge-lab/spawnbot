@@ -46,31 +46,17 @@ function findFile(filename: string): string | undefined {
 /**
  * Load SOUL.md content with mtime-based caching.
  * Returns the file content directly — it's Markdown, ready for the system prompt.
- * Falls back to the built-in default if no SOUL.md exists.
+ * Throws if no SOUL.md exists — user must run /setup first.
  */
-export function loadSoul(opts?: { required?: boolean }): string {
+export function loadSoul(): string {
   const soulPath = findFile(DOCS.soul)
 
   if (!soulPath) {
-    if (opts?.required) {
-      throw new Error("SOUL.md not found. Run 'spawnbot' and type /setup to create one.")
-    }
-    // Write default SOUL.md to disk so users can see and edit it
-    try {
-      const dir = docsDir()
-      fs.mkdirSync(dir, { recursive: true })
-      const targetPath = path.join(dir, DOCS.soul)
-      fs.writeFileSync(targetPath, DEFAULT_SOUL + "\n", "utf-8")
-      log.info("created default SOUL.md", { path: targetPath })
-    } catch (e) {
-      log.debug("could not write default SOUL.md to disk", { error: e })
-    }
-    return DEFAULT_SOUL
+    throw new Error("SOUL.md not found. Run 'spawnbot' and type /setup to create one.")
   }
 
-  const stat = fs.statSync(soulPath)
-  const mtime = stat.mtimeMs
-
+  // mtime-based cache — avoid re-reading on every LLM turn
+  const mtime = fs.statSync(soulPath).mtimeMs
   if (cached && cached.mtime === mtime) {
     return cached.content
   }
@@ -79,6 +65,11 @@ export function loadSoul(opts?: { required?: boolean }): string {
   cached = { content, mtime }
   log.info("loaded SOUL.md", { path: soulPath })
   return content
+}
+
+/** Returns the default SOUL.md template content (for use by /setup). */
+export function defaultSoul(): string {
+  return DEFAULT_SOUL
 }
 
 /**

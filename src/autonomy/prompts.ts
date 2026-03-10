@@ -18,15 +18,21 @@ function withTimestamp(prompt: string): string {
   return `${prompt}\n\nCurrent time: ${new Date().toISOString()}`
 }
 
-/** Periodic heartbeat — the agent wakes up with no specific task */
+/**
+ * Periodic heartbeat — the agent wakes up and checks HEARTBEAT.md.
+ * HEARTBEAT.md is your task board. Task format:
+ * - [ ] pending (work on this)
+ * - [~] ongoing (check in)
+ * - [x] done (skip, leave for context)
+ */
 export function heartbeat(): string {
   return withTimestamp(
-    "Read HEARTBEAT.md if it exists (workspace context). For each task listed, take action now — " +
-      "execute it using your tools, make real progress. Do not just acknowledge. " +
-      "After handling tasks, think about the user: review recent conversations for follow-ups, " +
-      "check if anything interesting has come up, consider if there is something worth sharing or asking about. " +
-      "Always communicate — share what you did, what you found, or start a conversation. " +
-      "Use your messaging tools to reach out. " +
+    "Read HEARTBEAT.md — your task board. For each pending (- [ ]) or ongoing (- [~]) task:\n" +
+      "1. Take concrete action using your tools. Make real progress.\n" +
+      "2. Update the task status in HEARTBEAT.md — mark [x] when done, add notes, timestamps.\n" +
+      "3. Message the user with what you did and any results.\n\n" +
+      "After tasks, think about the user: any follow-ups from recent conversations? " +
+      "Anything worth sharing or asking about?\n\n" +
       ACTION_MANDATE,
   )
 }

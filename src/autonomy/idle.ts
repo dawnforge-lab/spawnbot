@@ -2,6 +2,7 @@ import { InputQueue } from "@/input/queue"
 import { Log } from "@/util/log"
 import { ulid } from "ulid"
 import * as prompts from "./prompts"
+import { hasHeartbeatTasks } from "./heartbeat"
 
 const log = Log.create({ service: "autonomy.idle" })
 
@@ -47,7 +48,12 @@ export namespace IdleLoop {
       } else if (idle >= cfg.escalationThreshold) {
         enqueueIdleEvent(prompts.idleEscalation(), "low")
       } else if (idle >= cfg.baseInterval) {
-        enqueueIdleEvent(prompts.idleBase(), "low")
+        // Heartbeat: check HEARTBEAT.md task board. Skip LLM call if no pending tasks.
+        if (hasHeartbeatTasks()) {
+          enqueueIdleEvent(prompts.heartbeat(), "low")
+        } else {
+          log.debug("heartbeat skipped — no pending tasks in HEARTBEAT.md")
+        }
       }
     }, cfg.checkInterval)
 

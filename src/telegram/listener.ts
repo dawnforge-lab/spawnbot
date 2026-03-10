@@ -7,11 +7,17 @@ import { Transcribe } from "./transcribe"
 
 const log = Log.create({ service: "telegram.listener" })
 
+/** Max age for inbox files before cleanup (1 hour) */
+const INBOX_TTL_MS = 60 * 60 * 1000
+/** How often to run inbox cleanup (10 minutes) */
+const INBOX_CLEANUP_INTERVAL_MS = 10 * 60 * 1000
+
 export namespace TelegramListener {
   let bot: Bot | undefined
   let allowedUsers: Set<number> = new Set()
   let ownerChatId: number | undefined
   let mode: "polling" | "webhook" = "polling"
+  let cleanupTimer: ReturnType<typeof setInterval> | undefined
 
   /**
    * Message handler set by the daemon. grammY handlers call this directly.
@@ -57,6 +63,7 @@ export namespace TelegramListener {
     ownerChatId = config.ownerChatId
 
     registerHandlers()
+    startInboxCleanup()
 
     bot.catch((err) => {
       log.error("telegram bot error", { error: err })
@@ -159,6 +166,8 @@ export namespace TelegramListener {
 
       const photos = ctx.message.photo
       const largest = photos[photos.length - 1]
+      // Start typing before download so user sees feedback immediately
+      void bot?.api.sendChatAction(ctx.chat.id, "typing").catch(() => {})
       const filePath = await downloadFile(largest.file_id, `photo_${largest.file_id}.jpg`)
       const caption = ctx.message.caption ?? ""
 
@@ -180,6 +189,7 @@ export namespace TelegramListener {
 
       const doc = ctx.message.document
       const filename = doc.file_name ?? "document"
+      void bot?.api.sendChatAction(ctx.chat.id, "typing").catch(() => {})
       const filePath = await downloadFile(doc.file_id, filename)
       const caption = ctx.message.caption ?? ""
 
@@ -200,6 +210,7 @@ export namespace TelegramListener {
       if (!isAllowed(ctx)) return
 
       const voice = ctx.message.voice
+      void bot?.api.sendChatAction(ctx.chat.id, "typing").catch(() => {})
       const filePath = await downloadFile(voice.file_id, `voice_${voice.file_id}.ogg`)
 
       let transcript: string | undefined
@@ -238,23 +249,23 @@ export namespace TelegramListener {
       if (TOO_LARGE) {
         log.warn("video too large for Bot API download", { fileSize: video.file_size, limit: "20MB" })
       } else {
+        void bot?.api.sendChatAction(ctx.chat.id, "typing").catch(() => {})
         filePath = await downloadFile(video.file_id, filename)
       }
 
-      if (!filePath) {
-        const reason = TOO_LARGE ? "exceeds Telegram's 20MB download limit" : "download failed"
-        await send(ctx.chat.id, `Sorry, I can't process this video — ${reason}.`)
-        return
-      }
-
-      const content = `${caption ? caption + "\n\n" : ""}[Video "${filename}" (${video.duration}s) attached]`
+      // Always pass through to handleMessage so the LLM sees the user's caption
+      const content = filePath
+        ? `${caption ? caption + "\n\n" : ""}[Video "${filename}" (${video.duration}s) attached]`
+        : TOO_LARGE
+          ? `${caption ? caption + "\n\n" : ""}[Video "${filename}" not downloaded — exceeds Telegram's 20MB limit]`
+          : `${caption ? caption + "\n\n" : ""}[Video "${filename}" received but download failed]`
 
       await handleMessage(ctx, {
         sender: ctx.from?.first_name ?? ctx.from?.username ?? "unknown",
         content,
         chatId: ctx.chat.id,
         messageId: ctx.message.message_id,
-        file: { path: filePath, mime: video.mime_type ?? "video/mp4", name: filename },
+        file: filePath ? { path: filePath, mime: video.mime_type ?? "video/mp4", name: filename } : undefined,
       })
     })
 
@@ -281,6 +292,7 @@ export namespace TelegramListener {
       if (anim.file_size && anim.file_size > 20 * 1024 * 1024) {
         log.warn("animation too large for Bot API download", { fileSize: anim.file_size })
       } else {
+        void bot?.api.sendChatAction(ctx.chat.id, "typing").catch(() => {})
         filePath = await downloadFile(anim.file_id, filename)
       }
 
@@ -305,6 +317,7 @@ export namespace TelegramListener {
       if (note.file_size && note.file_size > 20 * 1024 * 1024) {
         log.warn("video note too large for Bot API download", { fileSize: note.file_size })
       } else {
+        void bot?.api.sendChatAction(ctx.chat.id, "typing").catch(() => {})
         filePath = await downloadFile(note.file_id, `video_note_${note.file_id}.mp4`)
       }
 
@@ -334,6 +347,10 @@ export namespace TelegramListener {
   // ── Outbound ──────────────────────────────────────────────────────
 
   export async function stop() {
+    if (cleanupTimer) {
+      clearInterval(cleanupTimer)
+      cleanupTimer = undefined
+    }
     if (bot) {
       if (mode === "webhook") {
         await bot.api.deleteWebhook().catch((err) => {
@@ -436,9 +453,12 @@ export namespace TelegramListener {
 
   async function downloadFileInner(fileId: string, filename: string): Promise<string | undefined> {
     // Use direct fetch instead of bot.api.getFile() — grammY's API client hangs in webhook mode
-    const getFileRes = await fetch(`https://api.telegram.org/bot${bot!.token}/getFile?file_id=${encodeURIComponent(fileId)}`)
-    if (!getFileRes.ok) throw new Error(`getFile HTTP ${getFileRes.status}`)
-    const getFileData = await getFileRes.json() as { ok: boolean; result?: { file_path?: string } }
+    // Retry getFile too — transient network errors here were causing silent failures
+    const getFileData = await retryTelegram(async () => {
+      const res = await fetch(`https://api.telegram.org/bot${bot!.token}/getFile?file_id=${encodeURIComponent(fileId)}`)
+      if (!res.ok) throw Object.assign(new Error(`getFile HTTP ${res.status}`), { status: res.status })
+      return res.json() as Promise<{ ok: boolean; result?: { file_path?: string } }>
+    })
     if (!getFileData.ok || !getFileData.result?.file_path) return undefined
 
     const url = `https://api.telegram.org/file/bot${bot!.token}/${getFileData.result.file_path}`
@@ -453,10 +473,12 @@ export namespace TelegramListener {
 
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_")
     const destPath = path.join(inboxDir, `${Date.now()}-${safeName}`)
-    const buffer = await res.arrayBuffer()
-    fs.writeFileSync(destPath, Buffer.from(buffer))
 
-    log.info("downloaded telegram file", { fileId, path: destPath, size: buffer.byteLength })
+    // Stream to disk via Bun.write (uses sendfile/splice internally, avoids Node Buffer copy)
+    await Bun.write(destPath, res)
+
+    const stat = fs.statSync(destPath)
+    log.info("downloaded telegram file", { fileId, path: destPath, size: stat.size })
     return destPath
   }
 
@@ -469,7 +491,10 @@ export namespace TelegramListener {
         lastError = err
         const status = err?.error_code ?? err?.status
         if (status === 429 || status >= 500 || err?.code === "ECONNRESET" || err?.code === "ETIMEDOUT") {
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
+          // Exponential backoff with 20% jitter to avoid thundering herd
+          const base = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
+          const jitter = base * 0.2 * Math.random()
+          const delay = Math.round(base + jitter)
           log.warn("telegram API retry", { attempt, delay, error: err?.message })
           await new Promise((r) => setTimeout(r, delay))
           continue
@@ -478,6 +503,48 @@ export namespace TelegramListener {
       }
     }
     throw lastError
+  }
+
+  /** Start periodic inbox cleanup. Runs immediately then every INBOX_CLEANUP_INTERVAL_MS. */
+  function startInboxCleanup() {
+    cleanInbox()
+    cleanupTimer = setInterval(cleanInbox, INBOX_CLEANUP_INTERVAL_MS)
+  }
+
+  /** Delete inbox files older than INBOX_TTL_MS */
+  function cleanInbox() {
+    const inboxDir = path.join(Global.Path.data, "inbox")
+    if (!fs.existsSync(inboxDir)) return
+
+    const now = Date.now()
+    let cleaned = 0
+    try {
+      for (const entry of fs.readdirSync(inboxDir)) {
+        const filePath = path.join(inboxDir, entry)
+        // Use the timestamp prefix in filename if available, fall back to mtime
+        const timestampMatch = entry.match(/^(\d+)-/)
+        let fileAge: number
+        if (timestampMatch) {
+          fileAge = now - parseInt(timestampMatch[1], 10)
+        } else {
+          try { fileAge = now - fs.statSync(filePath).mtimeMs } catch { continue }
+        }
+
+        if (fileAge > INBOX_TTL_MS) {
+          try {
+            fs.unlinkSync(filePath)
+            cleaned++
+          } catch (err) {
+            log.warn("failed to clean inbox file", { file: entry, error: err })
+          }
+        }
+      }
+    } catch (err) {
+      log.warn("inbox cleanup failed", { error: err })
+    }
+    if (cleaned > 0) {
+      log.info("inbox cleanup", { filesRemoved: cleaned })
+    }
   }
 
   function splitMessage(text: string, maxLength: number): string[] {

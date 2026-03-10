@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { TelegramListener } from "@/telegram/listener"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
+import { Daemon } from "@/daemon"
 import { Log } from "@/util/log"
 
 const log = Log.create({ service: "server.telegram" })
@@ -25,9 +26,11 @@ export function TelegramRoutes() {
     // Parse update
     const update = await c.req.json()
 
-    // Fire-and-forget: process update within Instance context (needed by SessionPrompt)
+    // Fire-and-forget: process update within the daemon's workspace context
+    // (HTTP requests don't inherit the daemon's AsyncLocalStorage context,
+    //  so we explicitly provide the same directory the daemon uses)
     void Instance.provide({
-      directory: process.cwd(),
+      directory: Daemon.getDirectory(),
       init: InstanceBootstrap,
       fn: () => bot.handleUpdate(update),
     }).catch((err) => {

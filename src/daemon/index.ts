@@ -99,10 +99,13 @@ export namespace Daemon {
   /**
    * Start all daemon subsystems.
    * @param serverPort — the Hono server port (used for webhook/ngrok tunnel)
+   * @param workspaceDir — the workspace directory (passed from CLI command)
    */
-  export async function start(serverPort?: number) {
+  export async function start(serverPort?: number, workspaceDir?: string) {
+    if (workspaceDir) directory = workspaceDir
     loadEnv()
     await validate()
+
 
     // Resume or create daemon session
     const autoApprove: Session.Info["permission"] = [{ permission: "*", pattern: "*", action: "allow" }]
@@ -167,6 +170,9 @@ export namespace Daemon {
         await TelegramListener.start(telegramConfig)
         log.info("telegram started", { mode: "polling", ownerChatId: ownerId })
       }
+      if (!ownerId) {
+        log.warn("TELEGRAM_OWNER_ID not set — autonomy responses will not be delivered via Telegram")
+      }
     } else {
       log.warn("TELEGRAM_BOT_TOKEN not set, skipping Telegram")
     }
@@ -219,8 +225,9 @@ export namespace Daemon {
     autonomyRunning = true
 
     while (autonomyRunning) {
+      let event: InputQueue.InputEvent | undefined
       try {
-        const event = await InputQueue.dequeue()
+        event = await InputQueue.dequeue()
         if (!autonomyRunning) break
 
         // Yield to user messages — re-enqueue and wait
@@ -247,14 +254,42 @@ export namespace Daemon {
           if (!shouldDropResponse(response, event.source)) {
             const cleaned = stripHeartbeatToken(response)
             if (cleaned) {
-              await TelegramListener.send(undefined, cleaned)
-              log.info("autonomy response delivered", { source: event.source, length: cleaned.length })
+              const sent = await TelegramListener.send(undefined, cleaned)
+              if (sent) {
+                log.info("autonomy response delivered", { source: event.source, length: cleaned.length })
+              } else {
+                log.warn("autonomy response not delivered (no Telegram target)", { source: event.source, length: cleaned.length })
+              }
             }
           }
         }
       } catch (err: any) {
         if (!autonomyRunning) break
-        log.error("autonomy consumer error", { error: err })
+
+        if (event) {
+          const isTransient = err?.status === 429 || err?.status >= 500 ||
+            err?.code === "ECONNRESET" || err?.code === "ETIMEDOUT" ||
+            err?.message?.includes("rate limit")
+          const retries = (event.metadata?.retries ?? 0) as number
+          const MAX_RETRIES = 3
+
+          if (isTransient && retries < MAX_RETRIES) {
+            log.warn("autonomy event failed (transient), re-enqueuing", {
+              id: event.id, source: event.source, retries: retries + 1, error: err?.message,
+            })
+            InputQueue.enqueue({
+              ...event,
+              priority: "low",
+              metadata: { ...event.metadata, retries: retries + 1 },
+            })
+          } else {
+            log.error("autonomy event failed permanently", {
+              id: event.id, source: event.source, retries, error: err,
+            })
+          }
+        } else {
+          log.error("autonomy consumer error", { error: err })
+        }
       }
     }
   }
@@ -275,6 +310,9 @@ export namespace Daemon {
   }
 
   export function getSessionID() { return sessionID }
+  export function getDirectory() { return directory }
+
+  let directory: string = process.cwd()
 
   export function resetSession() {
     clearSessionID()
@@ -283,7 +321,7 @@ export namespace Daemon {
 
   /** Validate critical configuration */
   async function validate() {
-    loadSoul({ required: true })
+    loadSoul()
 
     const envKeys = Object.keys(process.env).filter((k) => k.endsWith("_API_KEY"))
     if (envKeys.length > 0) {

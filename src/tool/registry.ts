@@ -152,7 +152,7 @@ export namespace ToolRegistry {
           // Enable websearch/codesearch for zen/kilo users OR via enable flag
 
           if (t.id === "codesearch" || t.id === "websearch") {
-            return model.providerID === "opencode" || model.providerID === "kilo" || Flag.KILO_ENABLE_EXA
+            return true
           }
           // use apply tool in same format as codex
           const usePatch =

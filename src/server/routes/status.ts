@@ -67,6 +67,14 @@ export function StatusRoutes() {
       },
     }),
     async (c) => {
+      const token = process.env.STATUS_API_TOKEN
+      if (token) {
+        const auth = c.req.header("Authorization")
+        if (auth !== `Bearer ${token}`) {
+          return c.json({ error: "Unauthorized" }, 401)
+        }
+      }
+
       const memStats = Memory.stats()
       const queueSizes = InputQueue.sizes()
 

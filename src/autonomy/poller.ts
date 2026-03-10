@@ -64,8 +64,8 @@ export namespace PollerManager {
 
     log.info("poller registered", { name: poller.name, interval })
 
-    // Run immediately on register
-    await runPoller(poller.name)
+    // Run immediately on register (fire-and-forget to avoid blocking startup)
+    void runPoller(poller.name)
   }
 
   /** Unregister and stop a poller */

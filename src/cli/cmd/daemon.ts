@@ -33,7 +33,7 @@ export const DaemonCommand = cmd({
       directory: args.directory as string,
       init: InstanceBootstrap,
       async fn() {
-        await Daemon.start(port)
+        await Daemon.start(port, args.directory as string)
 
         // Write port file AFTER everything is wired so the bash script
         // doesn't think the daemon is ready when it's still initializing

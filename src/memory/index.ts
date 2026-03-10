@@ -6,6 +6,15 @@ import { Embedding } from "./embedding"
 
 const log = Log.create({ service: "memory" })
 
+/** Sanitize input for FTS5 MATCH queries by quoting each word. */
+function sanitizeFTS(input: string): string {
+  const terms = input
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(term => `"${term.replace(/"/g, '""')}"`)
+  return terms.join(" ") || '""'
+}
+
 export namespace Memory {
   const FTS_TABLE = "memory_fts"
 
@@ -111,7 +120,7 @@ export namespace Memory {
             ORDER BY (fts.rank * m.importance) ASC
             LIMIT ?
           `
-          ftsParams = [input.query, input.category, limit * 2]
+          ftsParams = [sanitizeFTS(input.query), input.category, limit * 2]
         } else {
           ftsQuery = `
             SELECT m.*, fts.rank
@@ -121,7 +130,7 @@ export namespace Memory {
             ORDER BY (fts.rank * m.importance) ASC
             LIMIT ?
           `
-          ftsParams = [input.query, limit * 2]
+          ftsParams = [sanitizeFTS(input.query), limit * 2]
         }
 
         ftsRows = raw.prepare(ftsQuery).all(...ftsParams) as any[]

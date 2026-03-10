@@ -5,6 +5,7 @@ import os from "os"
 
 // Must import after test preload sets XDG vars
 let loadSoul: typeof import("../index").loadSoul
+let defaultSoul: typeof import("../index").defaultSoul
 let buildDocsReference: typeof import("../index").buildDocsReference
 let invalidateCache: typeof import("../index").invalidateCache
 
@@ -16,6 +17,7 @@ describe("soul", () => {
     // Re-import to get fresh module state
     const mod = await import("../index")
     loadSoul = mod.loadSoul
+    defaultSoul = mod.defaultSoul
     buildDocsReference = mod.buildDocsReference
     invalidateCache = mod.invalidateCache
     invalidateCache()
@@ -25,26 +27,25 @@ describe("soul", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true })
   })
 
-  test("loadSoul returns default when no SOUL.md exists", () => {
-    const result = loadSoul()
-    expect(result).toContain("Spawnbot")
+  test("loadSoul throws when no SOUL.md exists", () => {
+    expect(() => loadSoul()).toThrow("SOUL.md not found")
+  })
+
+  test("defaultSoul returns template with identity placeholder", () => {
+    const result = defaultSoul()
+    expect(result).toContain("# Identity")
     expect(result).toContain("autonomous AI agent")
   })
 
-  test("default soul contains output format section", () => {
-    const result = loadSoul()
+  test("defaultSoul contains output format section", () => {
+    const result = defaultSoul()
     expect(result).toContain("## Output format")
     expect(result).toContain("terminal or Telegram")
   })
 
-  test("default soul contains tools and code sections", () => {
-    const result = loadSoul()
+  test("defaultSoul contains tools and code sections", () => {
+    const result = defaultSoul()
     expect(result).toContain("## Tools")
     expect(result).toContain("## Working with code")
-  })
-
-  test("default soul contains identity placeholder", () => {
-    const result = loadSoul()
-    expect(result).toContain("# Identity")
   })
 })
