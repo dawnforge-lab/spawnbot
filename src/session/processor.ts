@@ -382,6 +382,15 @@ export namespace SessionProcessor {
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             if (MessageV2.ContextOverflowError.isInstance(error)) {
               needsCompaction = true
+              log.info("context overflow detected via ContextOverflowError, triggering compaction")
+              break
+            }
+            // Fallback: detect overflow from raw error message when APICallError.isInstance fails
+            // (can happen with multiple ai SDK versions)
+            const msg = e?.message ?? String(e)
+            if (/exceeded model token limit|exceeds the context window|context.length.exceeded|prompt is too long|reduce the length/i.test(msg)) {
+              needsCompaction = true
+              log.info("context overflow detected via message pattern, triggering compaction", { message: msg.slice(0, 200) })
               break
             }
             const retry = SessionRetry.retryable(error)
