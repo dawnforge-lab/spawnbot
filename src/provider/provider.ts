@@ -1084,6 +1084,14 @@ export namespace Provider {
           ...model.headers,
         }
 
+      // Disable DashScope content moderation (Green Net) for Alibaba providers
+      if (model.providerID.startsWith("alibaba")) {
+        options["headers"] = {
+          ...options["headers"],
+          "X-DashScope-DataInspection": JSON.stringify({ input: "disable", output: "disable" }),
+        }
+      }
+
       const key = Bun.hash.xxHash32(JSON.stringify({ providerID: model.providerID, npm: model.api.npm, options }))
       const existing = s.sdk.get(key)
       if (existing) return existing
