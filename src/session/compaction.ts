@@ -177,6 +177,29 @@ When constructing the summary, try to stick to this template:
 ---`
 
     const promptText = compacting.prompt ?? [defaultPrompt, ...compacting.context].join("\n\n")
+
+    // Truncate messages to fit within the compaction model's input limit.
+    // Keep recent messages (most relevant for summary), drop oldest first.
+    const maxInput = model.limit.input || model.limit.context
+    const promptTokens = Token.estimate(promptText)
+    const outputReserve = Math.min(COMPACTION_BUFFER, ProviderTransform.maxOutputTokens(model))
+    const budget = maxInput - promptTokens - outputReserve
+    let tokenSum = 0
+    let startIndex = input.messages.length
+    for (let i = input.messages.length - 1; i >= 0; i--) {
+      const msg = input.messages[i]
+      const estimate = msg.parts.reduce((sum, p) => {
+        if (p.type === "text") return sum + Token.estimate(p.text)
+        if (p.type === "tool" && p.state.status === "completed") return sum + Token.estimate(p.state.output)
+        return sum + 100
+      }, 0)
+      if (tokenSum + estimate > budget) break
+      tokenSum += estimate
+      startIndex = i
+    }
+    const truncatedMessages = input.messages.slice(startIndex)
+    log.info("compaction messages", { total: input.messages.length, included: truncatedMessages.length, tokens: tokenSum, budget })
+
     const result = await processor.process({
       user: userMessage,
       agent,
@@ -185,7 +208,7 @@ When constructing the summary, try to stick to this template:
       tools: {},
       system: [],
       messages: [
-        ...MessageV2.toModelMessages(input.messages, model),
+        ...MessageV2.toModelMessages(truncatedMessages, model),
         {
           role: "user",
           content: [
