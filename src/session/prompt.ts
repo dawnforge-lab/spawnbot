@@ -385,6 +385,7 @@ export namespace SessionPrompt {
         throw e
       })
       const task = tasks.pop()
+      log.info("task check", { taskType: task?.type, tasksLength: tasks.length, lastFinishedId: lastFinished?.id, lastFinishedSummary: lastFinished?.summary })
 
       // pending subtask
       // TODO: centralize "invoke tool" logic
