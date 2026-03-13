@@ -3,6 +3,7 @@ import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { Auth } from "../../auth"
 import { ModelsDev } from "../../provider/models"
+import { Instance } from "../../project/instance"
 import { map, pipe, sortBy, values } from "remeda"
 import fs from "fs"
 import path from "path"
@@ -41,23 +42,28 @@ export const ConfigCommand = cmd({
 
     fs.mkdirSync(workspace, { recursive: true })
 
-    UI.empty()
-    prompts.intro(UI.logo() + "  configuration")
-    prompts.log.info(`Workspace: ${workspace}`)
+    await Instance.provide({
+      directory: workspace,
+      async fn() {
+        UI.empty()
+        prompts.intro(UI.logo() + "  configuration")
+        prompts.log.info(`Workspace: ${workspace}`)
 
-    // --- Section 1: LLM Provider ---
-    await configureProvider()
+        // --- Section 1: LLM Provider ---
+        await configureProvider()
 
-    // --- Section 2: Telegram ---
-    await configureTelegram(workspace)
+        // --- Section 2: Telegram ---
+        await configureTelegram(workspace)
 
-    // --- Section 3: ngrok ---
-    await configureNgrok(workspace)
+        // --- Section 3: ngrok ---
+        await configureNgrok(workspace)
 
-    // --- Section 4: OpenAI (Whisper) ---
-    await configureOpenAI(workspace)
+        // --- Section 4: OpenAI (Whisper) ---
+        await configureOpenAI(workspace)
 
-    prompts.outro("Configuration complete. Run `spawnbot` to start.")
+        prompts.outro("Configuration complete. Run `spawnbot` to start.")
+      },
+    })
   },
 })
 
