@@ -19,6 +19,7 @@ function mimeToModality(mime: string): Modality | undefined {
 
 export namespace ProviderTransform {
   export const OUTPUT_TOKEN_MAX = Flag.KILO_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
+  export const CONTEXT_TOKEN_MAX = Flag.KILO_EXPERIMENTAL_CONTEXT_TOKEN_MAX || 200_000
 
   // Maps npm package to the key the AI SDK expects for providerOptions
   function sdkKey(npm: string): string | undefined {
@@ -894,6 +895,12 @@ export namespace ProviderTransform {
 
   export function maxOutputTokens(model: Provider.Model): number {
     return Math.min(model.limit.output, OUTPUT_TOKEN_MAX) || OUTPUT_TOKEN_MAX
+  }
+
+  export function maxContextTokens(model: Provider.Model): number {
+    const modelLimit = model.limit.input || model.limit.context
+    if (modelLimit === 0) return CONTEXT_TOKEN_MAX
+    return Math.min(modelLimit, CONTEXT_TOKEN_MAX)
   }
 
   export function schema(model: Provider.Model, schema: JSONSchema.BaseSchema | JSONSchema7): JSONSchema7 {

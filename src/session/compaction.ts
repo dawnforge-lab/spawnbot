@@ -32,8 +32,8 @@ export namespace SessionCompaction {
   export async function isOverflow(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }) {
     const config = await Config.get()
     if (config.compaction?.auto === false) return false
-    const context = input.model.limit.context
-    if (context === 0) return false
+    const capped = ProviderTransform.maxContextTokens(input.model)
+    if (capped === 0) return false
 
     const count =
       input.tokens.total ||
@@ -41,9 +41,7 @@ export namespace SessionCompaction {
 
     const reserved =
       config.compaction?.reserved ?? Math.min(COMPACTION_BUFFER, ProviderTransform.maxOutputTokens(input.model))
-    const usable = input.model.limit.input
-      ? input.model.limit.input - reserved
-      : context - ProviderTransform.maxOutputTokens(input.model)
+    const usable = capped - reserved
     return count >= usable
   }
 
@@ -180,7 +178,7 @@ When constructing the summary, try to stick to this template:
 
     // Truncate messages to fit within the compaction model's input limit.
     // Keep recent messages (most relevant for summary), drop oldest first.
-    const maxInput = model.limit.input || model.limit.context
+    const maxInput = ProviderTransform.maxContextTokens(model)
     const promptTokens = Token.estimate(promptText)
     const outputReserve = Math.min(COMPACTION_BUFFER, ProviderTransform.maxOutputTokens(model))
     const budget = maxInput - promptTokens - outputReserve
